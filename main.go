@@ -206,7 +206,7 @@ func main() {
 	sid := fmt.Sprintf("[%s]-(%s) ", uuid.New().String(), username)
 	if username == "" || password == "" {
 		log.Println(sid, "Unable to get all the parts for authentication.", "Username: \"" + inputEnv + "\"")
-		os.Exit(10)
+		os.Exit(11)	// PAM_CRED_INSUFFICIENT
 	}
 	//
 	// Authenticate
@@ -265,5 +265,5 @@ func main() {
 	}
 
 	log.Print(sid, "Authentication was successful but authorization failed")
-	os.Exit(3)
+	os.Exit(7)  // PAM_PERM_DENIED
 }
