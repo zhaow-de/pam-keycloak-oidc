@@ -1,0 +1,78 @@
+name: Build and publish
+on:
+  push:
+    tags:
+      - 'r*'
+  workflow_dispatch:
+
+jobs:
+  build_and_publish:
+    name: Build and publish the application
+    runs-on: ubuntu-20.04
+    steps:
+      -
+        name: Check out the repo
+        uses: actions/checkout@v2
+      -
+        name: Setup golang version
+        uses: actions/setup-go@v2
+        with:
+          go-version: '^1.15.8'
+      -
+        name: Verify golang version
+        run: go version
+      -
+        name: Cache go modules
+        uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      -
+        name: Install dependencies
+        run: go mod download
+      -
+        name: Build
+        run: make all
+      -
+        name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+      -
+        name: Upload Release Asset (Linux amd64)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          asset_path: ./pam-keycloak-oidc.linux-amd64
+          asset_name: pam-keycloak-oidc.linux-amd64
+          asset_content_type: application/octet-stream
+      -
+        name: Upload Release Asset (macOS amd64)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          asset_path: ./pam-keycloak-oidc.darwin-amd64
+          asset_name: pam-keycloak-oidc.macOS-intel
+          asset_content_type: application/octet-stream
+      -
+        name: Upload Release Asset (Windows amd64)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          asset_path: ./pam-keycloak-oidc.windows-amd64.exe
+          asset_name: pam-keycloak-oidc.exe
+          asset_content_type: application/octet-stream
