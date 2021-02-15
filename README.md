@@ -83,6 +83,8 @@ system is not amd64, compile this golang application for the appropriate archite
     username-format="%s"
     # to be the same as the particular Keycloak client
     access-token-signing-method="RS256"
+    # a key for XOR masking. treat it as a top secret
+    xor-key="scmi" 
     ```
 
 8.  Local "test":
