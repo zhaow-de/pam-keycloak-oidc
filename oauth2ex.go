@@ -10,6 +10,7 @@ import (
 	"golang.org/x/oauth2"
 	"io"
 	"io/ioutil"
+	"log"
 	"mime"
 	"net/http"
 	"net/url"
@@ -20,6 +21,52 @@ import (
 // providers returning a token in JSON form.
 type tokenJSON struct {
 	AccessToken string `json:"access_token"`
+}
+
+type MicrosoftGraphResponse struct {
+	Context string `json:"@odata.context"`
+	Groups []struct {
+		Name string `json:"displayName"`
+		Type string `json:"@odata.type"`
+	} `json:"value"`
+}
+
+
+// aadGroupMembershipRequest returns a []string containing the names
+// of Azure AD groups that this user belongs to, using the provided
+// userId and bearer token.
+func aadGroupMembershipRequest(userId string, bearerToken string) ([]string, error) {
+	groupNames := []string{}
+
+	// Create a new request using http with correct authorization header
+    req, err := http.NewRequest("GET", "https://graph.microsoft.com/v1.0/users/" + userId + "/memberOf", nil)
+    req.Header.Add("Authorization", "Bearer " + bearerToken)
+
+    // Use http Client to send the request, closing when finished
+    client := &http.Client{}
+    resp, err := client.Do(req)
+    if err != nil {
+        return groupNames, err
+    }
+    defer resp.Body.Close()
+
+	// Read response and unmarshal JSON into a struct
+    body, err := ioutil.ReadAll(resp.Body)
+    if err != nil {
+        return groupNames, err
+    }
+	var response MicrosoftGraphResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return groupNames, err
+	}
+
+	// Look through the struct for Microsoft Graph groups
+	for _, group := range response.Groups {
+		if group.Type == "#microsoft.graph.group" {
+			groupNames = append(groupNames, group.Name)
+		}
+	}
+	return groupNames, nil
 }
 
 // newTokenRequest returns a new *http.Request to retrieve a new token
@@ -83,6 +130,7 @@ func doTokenRoundTrip(ctx context.Context, req *http.Request) (string, error) {
 		if err != nil {
 			return "", err
 		}
+		log.Print(values)
 		token = values.Get("access_token")
 	default:
 		var tj tokenJSON

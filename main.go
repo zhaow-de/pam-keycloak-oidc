@@ -8,7 +8,7 @@ import (
 	"encoding/base32"
 	"fmt"
 	"github.com/BurntSushi/toml"
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -38,6 +38,7 @@ type Config struct {
 	TokenEndpoint            string            `toml:"endpoint-token-url"`
 	UsernameFormat           string            `toml:"username-format"`
 	MandatoryUserRole        string            `toml:"vpn-user-role"`
+	AADGroupName             string            `toml:"group-name"`
 	AccessTokenSigningMethod string            `toml:"access-token-signing-method"`
 	XORKey                   string            `toml:"xor-key"`
 	ExtraParameters          map[string]string `toml:"extra-parameters"`
@@ -251,7 +252,8 @@ func main() {
 	if token == nil {
 		log.Fatal(sid, "Encountered invalid JWT token but golang.org/x/oauth2 was okay with it")
 	}
-	// with dgrijalva/jwt-go we must not verify token.Valid because of a bug, the library requires the SSL certificate
+
+	// with golang-jwt/jwt-go we must not verify token.Valid because of a bug, the library requires the SSL certificate
 	// start with ----BEGIN, but it should be -----BEGIN. that's why the verification is always invalid.
 	if claims := token.Claims.(jwt.MapClaims); claims != nil {
 		if roles, ok := claims[config.Scope]; ok {
@@ -261,6 +263,20 @@ func main() {
 					os.Exit(0)
 				}
 			}
+		}
+	}
+
+	// Check for membership of the requested AzureAD group
+	aadUserId := token.Claims.(jwt.MapClaims)["oid"].(string)
+	aadGroupNames, err := aadGroupMembershipRequest(aadUserId, accessToken)
+	if err != nil {
+		log.Print(err)
+		os.Exit(3)
+	}
+	for _, aadGroupName := range aadGroupNames {
+		if aadGroupName == config.AADGroupName {
+			log.Print(sid, "Authentication succeeded")
+			os.Exit(0)
 		}
 	}
 
