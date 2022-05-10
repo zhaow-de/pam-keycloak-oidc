@@ -17,7 +17,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -30,16 +29,12 @@ const digits int = 6
 const interval int64 = 30
 
 type Config struct {
+	AADTenantID              string            `toml:"tenant-id"`
 	ClientId                 string            `toml:"client-id"`
 	ClientSecret             string            `toml:"client-secret"`
-	RedirectUri              string            `toml:"redirect-url"`
 	Scope                    string            `toml:"scope"`
-	AuthEndpoint             string            `toml:"endpoint-auth-url"`
-	TokenEndpoint            string            `toml:"endpoint-token-url"`
-	UsernameFormat           string            `toml:"username-format"`
-	MandatoryUserRole        string            `toml:"vpn-user-role"`
 	AADGroupName             string            `toml:"group-name"`
-	AccessTokenSigningMethod string            `toml:"access-token-signing-method"`
+	AADDomain                string            `toml:"domain"`
 	XORKey                   string            `toml:"xor-key"`
 	ExtraParameters          map[string]string `toml:"extra-parameters"`
 }
@@ -209,28 +204,36 @@ func main() {
 		log.Println(sid, "Unable to get all the parts for authentication.", "Username: \"" + inputEnv + "\"")
 		os.Exit(11)	// PAM_CRED_INSUFFICIENT
 	}
+
 	//
 	// Authenticate
 	//
+    AuthEndpoint := "https://login.microsoftonline.com/" + config.AADTenantID + "/oauth2/v2.0/authorize"
+    TokenEndpoint := "https://login.microsoftonline.com/" + config.AADTenantID + "/oauth2/v2.0/token"
 	oauth2Config := oauth2.Config{
 		ClientID:     config.ClientId,
 		ClientSecret: config.ClientSecret,
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  config.AuthEndpoint,
-			TokenURL: config.TokenEndpoint,
+			AuthURL:  AuthEndpoint,
+			TokenURL: TokenEndpoint,
 		},
 	}
+
+	// If there is no suffix then use the default domain
+	if ! strings.Contains(username, "@") {
+		username = username + "@" + config.AADDomain
+	}
+
+	// Pass any extra parameters to passwordCredentialsTokenEx
 	extraParameters := url.Values{}
 	for k, v := range config.ExtraParameters {
 		extraParameters[k] = []string{v}
 	}
 
-	oauth2Context := context.Background()
-
 	accessToken, err := passwordCredentialsTokenEx(
-		oauth2Context,
+		context.Background(),
 		oauth2Config,
-		fmt.Sprintf(config.UsernameFormat, username),
+		username,
 		password,
 		otpCode,
 		config.Scope,
@@ -253,25 +256,12 @@ func main() {
 		log.Fatal(sid, "Encountered invalid JWT token but golang.org/x/oauth2 was okay with it")
 	}
 
-	// with golang-jwt/jwt-go we must not verify token.Valid because of a bug, the library requires the SSL certificate
-	// start with ----BEGIN, but it should be -----BEGIN. that's why the verification is always invalid.
-	if claims := token.Claims.(jwt.MapClaims); claims != nil {
-		if roles, ok := claims[config.Scope]; ok {
-			for _, item := range roles.([]interface{}) {
-				if reflect.ValueOf(item).Kind() == reflect.String && item == config.MandatoryUserRole {
-					log.Print(sid, "Authentication succeeded")
-					os.Exit(0)
-				}
-			}
-		}
-	}
-
 	// Check for membership of the requested AzureAD group
 	aadUserId := token.Claims.(jwt.MapClaims)["oid"].(string)
 	aadGroupNames, err := aadGroupMembershipRequest(aadUserId, accessToken)
 	if err != nil {
-		log.Print(err)
-		os.Exit(3)
+		log.Print(sid, "AzureAD groups could not be loaded for this user")
+		os.Exit(8)  // PAM_CRED_INSUFFICIENT
 	}
 	for _, aadGroupName := range aadGroupNames {
 		if aadGroupName == config.AADGroupName {
