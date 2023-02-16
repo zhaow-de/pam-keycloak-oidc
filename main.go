@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/ascii85"
@@ -10,7 +11,6 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
-	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"log"
 	"math"
@@ -205,8 +205,8 @@ func main() {
 	}
 	sid := fmt.Sprintf("[%s]-(%s) ", uuid.New().String(), username)
 	if username == "" || password == "" {
-		log.Println(sid, "Unable to get all the parts for authentication.", "Username: \"" + inputEnv + "\"")
-		os.Exit(11)	// PAM_CRED_INSUFFICIENT
+		log.Println(sid, "Unable to get all the parts for authentication.", "Username: \""+inputEnv+"\"")
+		os.Exit(11) // PAM_CRED_INSUFFICIENT
 	}
 	//
 	// Authenticate
@@ -265,5 +265,5 @@ func main() {
 	}
 
 	log.Print(sid, "Authentication was successful but authorization failed")
-	os.Exit(7)  // PAM_PERM_DENIED
+	os.Exit(7) // PAM_PERM_DENIED
 }
