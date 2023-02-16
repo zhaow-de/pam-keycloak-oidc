@@ -1,6 +1,6 @@
 # pam-keycloak-oidc
 
-**Current version: 1.1.5**
+**Current version: 1.1.6**
 
 PAM module connecting to [Keycloak](https://www.keycloak.org/) for user authentication using OpenID Connect protocol,
 MFA (Multi-Factor Authentication) or TOTP (Time-based One-time Password) is supported.
