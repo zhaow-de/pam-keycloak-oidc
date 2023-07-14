@@ -48,7 +48,7 @@ In theory, it should work with any identity provider which supports OpenID Conne
     * Scope:
         * Full Scope Allowed: `OFF`
         * Effective Roles: `demo-pam-authentication`
-       
+
 4.  Assign the role `demo-pam-authentication` to relevant users. A common practice is to assign the role to a Group,
     then make the relevant users join that group. Refer to Keycloak documents for the HOWTO.
 
@@ -84,7 +84,9 @@ system is not amd64, compile this golang application for the appropriate archite
     # to be the same as the particular Keycloak client
     access-token-signing-method="RS256"
     # a key for XOR masking. treat it as a top secret
-    xor-key="scmi" 
+    xor-key="scmi"
+    # use only otp code for auth
+    otp-only=false
     ```
 
 8.  Local "test":
@@ -95,6 +97,10 @@ system is not amd64, compile this golang application for the appropriate archite
     # with MFA. Assuming a user test2 with password password2, at the moment the MFA code is 987654
     export PAM_USER=test2
     echo password2987654 | /opt/pam-keycloak-oidc/pam-keycloak-oidc
+    # with OTP code only (otp-only=true), OTP code is 987654
+    # need create Flow without password and set to client, example MFA OpenVPN certificate + OTP
+    export PAM_USER=test3
+    echo 987654 | /opt/pam-keycloak-oidc/pam-keycloak-oidc
     ```
     You should see message: "...(test2) Authentication succeeded"
 
@@ -109,15 +115,15 @@ system is not amd64, compile this golang application for the appropriate archite
 
 ## MFA/TOTP handling
 
-At Github, there are already many repos implemented PAM<->OAuth2/OIDC. 
+At Github, there are already many repos implemented PAM<->OAuth2/OIDC.
 
-PAM supports only username and password, while it does not provide the third place for the one-time code. However, 
+PAM supports only username and password, while it does not provide the third place for the one-time code. However,
 for online authentication and authorization, MFA is fastly becoming the standard which is enforced for many scenarios.
 We have to "embed" the OTP code either into the username or the password. This application supports both.
 
 ### Simple case
 
-Users could put the 6-digits OTP code right after the real password. For instance, password `SuperSecure` becomes 
+Users could put the 6-digits OTP code right after the real password. For instance, password `SuperSecure` becomes
 `SuperSecure123987` if at the moment the OTP code is `123987`. This is the standard approach, because what's dynamic
 remains dynamic.
 
@@ -191,4 +197,4 @@ an interpreter seems not a good fit with this particular deployment scenario.
 
 Ansi C or C++ is the default choice for Linux, but the OAuth2 or OpenID Connect support is probably too low level.
 Rust and Go could be the second-tier candidates. Rust is stroke through as the default AWS CodeBuild image does not
-have the compiler and package manager built-in. Go was chosen as the programming language for this application.  
+have the compiler and package manager built-in. Go was chosen as the programming language for this application.

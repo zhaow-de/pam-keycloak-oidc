@@ -8,10 +8,6 @@ import (
 	"encoding/ascii85"
 	"encoding/base32"
 	"fmt"
-	"github.com/BurntSushi/toml"
-	"github.com/dgrijalva/jwt-go"
-	"github.com/google/uuid"
-	"golang.org/x/oauth2"
 	"log"
 	"math"
 	"net/url"
@@ -21,6 +17,11 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/BurntSushi/toml"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/google/uuid"
+	"golang.org/x/oauth2"
 )
 
 // number of integers in the OTP. Google Authenticator expects this to be 6 digits
@@ -40,6 +41,7 @@ type Config struct {
 	MandatoryUserRole        string            `toml:"vpn-user-role"`
 	AccessTokenSigningMethod string            `toml:"access-token-signing-method"`
 	XORKey                   string            `toml:"xor-key"`
+	OTPOnly                  bool              `toml:"otp-only"`
 	ExtraParameters          map[string]string `toml:"extra-parameters"`
 }
 
@@ -199,8 +201,13 @@ func main() {
 			password = match[1]
 			otpCode = match[2]
 		} else {
-			password = inputStdio
-			otpCode = ""
+			if config.OTPOnly {
+				password = "_"
+				otpCode = inputStdio
+			} else {
+				password = inputStdio
+				otpCode = ""
+			}
 		}
 	}
 	sid := fmt.Sprintf("[%s]-(%s) ", uuid.New().String(), username)
