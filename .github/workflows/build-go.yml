@@ -17,7 +17,7 @@ jobs:
         name: Setup golang version
         uses: actions/setup-go@v2
         with:
-          go-version: '^1.15.8'
+          go-version: '^1.19'
       -
         name: Verify golang version
         run: go version
