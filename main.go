@@ -63,7 +63,7 @@ func loadConfig() *Config {
 	return &config
 }
 
-// encryptDecrypt runs an XOR encryption on the input string, encrypting it if it hasn't already been,
+// encryptDecrypt runs XOR encryption on the input string, encrypting it if it hasn't already been,
 // and decrypting it if it has, using the key provided.
 func encryptDecrypt(input []byte, key string) (output []byte) {
 	kL := len(key)

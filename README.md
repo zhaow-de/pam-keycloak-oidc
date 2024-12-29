@@ -1,6 +1,6 @@
 # pam-keycloak-oidc
 
-**Current version: 1.2.0**
+Current version: **1.2.1**
 
 PAM module connecting to [Keycloak](https://www.keycloak.org/) for user authentication using OpenID Connect protocol,
 MFA (Multi-Factor Authentication) or TOTP (Time-based One-time Password) is supported.
@@ -123,7 +123,7 @@ We have to "embed" the OTP code either into the username or the password. This a
 
 ### Simple case
 
-Users could put the 6-digits OTP code right after the real password. For instance, password `SuperSecure` becomes
+Users could put the 6-digit OTP code right after the real password. For instance, password `SuperSecure` becomes 
 `SuperSecure123987` if at the moment the OTP code is `123987`. This is the standard approach, because what's dynamic
 remains dynamic.
 
@@ -136,7 +136,7 @@ of both macOS and Windows do not prompt the password if the saved credential is 
 required to set the password each time for the VPN connection. To work it around, this "hardcoded" case is introduced
 to make both the username and password static even when MFA is enabled.
 
-**IMPORTANT: For environment requires high security standard, this approach should be used, because the MFA token
+**IMPORTANT: For environment requires high security standard, this approach must _**NOT**_ be used, because the MFA token
 could be calculated by anyone who knows the username!!**
 
 There are many TOTP tools, e.g. 1Password, LastPass, Authy, etc, could make the MFA config string visible. The MFA
@@ -187,11 +187,11 @@ from `stdin` pipe, validate the credential, and return `0` if it is successful, 
 ## Why golang?
 
 The logic of this application is simple:
-1.  Captures the PAM authentication request. When it arrives, issue a request to OAuth2 IdP with grant_type `password`
+1.  Capture the PAM authentication request. When it arrives, issue a request to OAuth2 IdP with grant_type `password`
 2.  Decode and validate the received `access_token` (a JWT token), and check the roles the user has
 3.  If the user has the pre-defined role for VPN, accept the PAM request, otherwise, reject it.
 
-In principle any mainstream programming language can do the job, including Python and JavaScript/TypeScript which are
+In principle, any mainstream programming language can do the job, including Python and JavaScript/TypeScript which are
 highly popular and adopted. However, PAM authentication module is too close to Linux OS, having an application requires
 an interpreter seems not a good fit with this particular deployment scenario.
 
