@@ -1,6 +1,6 @@
 # pam-keycloak-oidc
 
-**Current version: 1.1.5**
+Current version: **1.2.0**
 
 PAM module connecting to [Keycloak](https://www.keycloak.org/) for user authentication using OpenID Connect protocol,
 MFA (Multi-Factor Authentication) or TOTP (Time-based One-time Password) is supported.
@@ -48,12 +48,12 @@ In theory, it should work with any identity provider which supports OpenID Conne
     * Scope:
         * Full Scope Allowed: `OFF`
         * Effective Roles: `demo-pam-authentication`
-       
+
 4.  Assign the role `demo-pam-authentication` to relevant users. A common practice is to assign the role to a Group,
     then make the relevant users join that group. Refer to Keycloak documents for the HOWTO.
 
 5.  Download the precompiled binary from Github, e.g. as `/opt/pam-keycloak-oidc/pam-keycloak-oidc`. In case the
-system is not amd64, compile this golang application for the appropriate architecture.
+system is not amd64 or arm64, compile this golang application for the appropriate architecture.
 
 6.  ```shell
     chmod +x /opt/pam-keycloak-oidc/pam-keycloak-oidc
@@ -84,7 +84,9 @@ system is not amd64, compile this golang application for the appropriate archite
     # to be the same as the particular Keycloak client
     access-token-signing-method="RS256"
     # a key for XOR masking. treat it as a top secret
-    xor-key="scmi" 
+    xor-key="scmi"
+    # use only otp code for auth
+    otp-only=false
     ```
 
 8.  Local "test":
@@ -95,6 +97,10 @@ system is not amd64, compile this golang application for the appropriate archite
     # with MFA. Assuming a user test2 with password password2, at the moment the MFA code is 987654
     export PAM_USER=test2
     echo password2987654 | /opt/pam-keycloak-oidc/pam-keycloak-oidc
+    # with OTP code only (otp-only=true), OTP code is 987654
+    # need create Flow without password and set to client, example MFA OpenVPN certificate + OTP
+    export PAM_USER=test3
+    echo 987654 | /opt/pam-keycloak-oidc/pam-keycloak-oidc
     ```
     You should see message: "...(test2) Authentication succeeded"
 
@@ -109,9 +115,9 @@ system is not amd64, compile this golang application for the appropriate archite
 
 ## MFA/TOTP handling
 
-At Github, there are already many repos implemented PAM<->OAuth2/OIDC. 
+At Github, there are already many repos implemented PAM<->OAuth2/OIDC.
 
-PAM supports only username and password, while it does not provide the third place for the one-time code. However, 
+PAM supports only username and password, while it does not provide the third place for the one-time code. However,
 for online authentication and authorization, MFA is fastly becoming the standard which is enforced for many scenarios.
 We have to "embed" the OTP code either into the username or the password. This application supports both.
 
@@ -181,14 +187,14 @@ from `stdin` pipe, validate the credential, and return `0` if it is successful, 
 ## Why golang?
 
 The logic of this application is simple:
-1.  Captures the PAM authentication request. When it arrives, issue a request to OAuth2 IdP with grant_type `password`
+1.  Capture the PAM authentication request. When it arrives, issue a request to OAuth2 IdP with grant_type `password`
 2.  Decode and validate the received `access_token` (a JWT token), and check the roles the user has
 3.  If the user has the pre-defined role for VPN, accept the PAM request, otherwise, reject it.
 
-In principle any mainstream programming language can do the job, including Python and JavaScript/TypeScript which are
+In principle, any mainstream programming language can do the job, including Python and JavaScript/TypeScript which are
 highly popular and adopted. However, PAM authentication module is too close to Linux OS, having an application requires
 an interpreter seems not a good fit with this particular deployment scenario.
 
 Ansi C or C++ is the default choice for Linux, but the OAuth2 or OpenID Connect support is probably too low level.
 Rust and Go could be the second-tier candidates. Rust is stroke through as the default AWS CodeBuild image does not
-have the compiler and package manager built-in. Go was chosen as the programming language for this application.  
+have the compiler and package manager built-in. Go was chosen as the programming language for this application.

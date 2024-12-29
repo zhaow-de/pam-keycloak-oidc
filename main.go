@@ -2,16 +2,12 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/ascii85"
 	"encoding/base32"
 	"fmt"
-	"github.com/BurntSushi/toml"
-	"github.com/dgrijalva/jwt-go"
-	"github.com/google/uuid"
-	"golang.org/x/net/context"
-	"golang.org/x/oauth2"
 	"log"
 	"math"
 	"net/url"
@@ -21,6 +17,11 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/BurntSushi/toml"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/google/uuid"
+	"golang.org/x/oauth2"
 )
 
 // number of integers in the OTP. Google Authenticator expects this to be 6 digits
@@ -40,6 +41,7 @@ type Config struct {
 	MandatoryUserRole        string            `toml:"vpn-user-role"`
 	AccessTokenSigningMethod string            `toml:"access-token-signing-method"`
 	XORKey                   string            `toml:"xor-key"`
+	OTPOnly                  bool              `toml:"otp-only"`
 	ExtraParameters          map[string]string `toml:"extra-parameters"`
 }
 
@@ -61,7 +63,7 @@ func loadConfig() *Config {
 	return &config
 }
 
-// encryptDecrypt runs an XOR encryption on the input string, encrypting it if it hasn't already been,
+// encryptDecrypt runs XOR encryption on the input string, encrypting it if it hasn't already been,
 // and decrypting it if it has, using the key provided.
 func encryptDecrypt(input []byte, key string) (output []byte) {
 	kL := len(key)
@@ -199,14 +201,19 @@ func main() {
 			password = match[1]
 			otpCode = match[2]
 		} else {
-			password = inputStdio
-			otpCode = ""
+			if config.OTPOnly {
+				password = "_"
+				otpCode = inputStdio
+			} else {
+				password = inputStdio
+				otpCode = ""
+			}
 		}
 	}
 	sid := fmt.Sprintf("[%s]-(%s) ", uuid.New().String(), username)
 	if username == "" || password == "" {
-		log.Println(sid, "Unable to get all the parts for authentication.", "Username: \"" + inputEnv + "\"")
-		os.Exit(11)	// PAM_CRED_INSUFFICIENT
+		log.Println(sid, "Unable to get all the parts for authentication.", "Username: \""+inputEnv+"\"")
+		os.Exit(11) // PAM_CRED_INSUFFICIENT
 	}
 	//
 	// Authenticate
@@ -265,5 +272,5 @@ func main() {
 	}
 
 	log.Print(sid, "Authentication was successful but authorization failed")
-	os.Exit(7)  // PAM_PERM_DENIED
+	os.Exit(7) // PAM_PERM_DENIED
 }
