@@ -117,7 +117,7 @@ We have to "embed" the OTP code either into the username or the password. This a
 
 ### Simple case
 
-Users could put the 6-digits OTP code right after the real password. For instance, password `SuperSecure` becomes 
+Users could put the 6-digit OTP code right after the real password. For instance, password `SuperSecure` becomes 
 `SuperSecure123987` if at the moment the OTP code is `123987`. This is the standard approach, because what's dynamic
 remains dynamic.
 
@@ -130,7 +130,7 @@ of both macOS and Windows do not prompt the password if the saved credential is 
 required to set the password each time for the VPN connection. To work it around, this "hardcoded" case is introduced
 to make both the username and password static even when MFA is enabled.
 
-**IMPORTANT: For environment requires high security standard, this approach should be used, because the MFA token
+**IMPORTANT: For environment requires high security standard, this approach must _**NOT**_ be used, because the MFA token
 could be calculated by anyone who knows the username!!**
 
 There are many TOTP tools, e.g. 1Password, LastPass, Authy, etc, could make the MFA config string visible. The MFA
