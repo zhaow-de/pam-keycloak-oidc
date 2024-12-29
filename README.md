@@ -1,6 +1,6 @@
 # pam-keycloak-oidc
 
-**Current version: 1.1.6**
+**Current version: 1.2.0**
 
 PAM module connecting to [Keycloak](https://www.keycloak.org/) for user authentication using OpenID Connect protocol,
 MFA (Multi-Factor Authentication) or TOTP (Time-based One-time Password) is supported.
@@ -53,7 +53,7 @@ In theory, it should work with any identity provider which supports OpenID Conne
     then make the relevant users join that group. Refer to Keycloak documents for the HOWTO.
 
 5.  Download the precompiled binary from Github, e.g. as `/opt/pam-keycloak-oidc/pam-keycloak-oidc`. In case the
-system is not amd64, compile this golang application for the appropriate architecture.
+system is not amd64 or arm64, compile this golang application for the appropriate architecture.
 
 6.  ```shell
     chmod +x /opt/pam-keycloak-oidc/pam-keycloak-oidc

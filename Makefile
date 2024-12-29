@@ -7,10 +7,10 @@ K := $(foreach exec,$(EXECUTABLES),\
 ROOT_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 BINARY=pam-keycloak-oidc
-VERSION=1.1.6
+VERSION=1.2.0
 BUILD=`git rev-parse HEAD`
 PLATFORMS=darwin linux windows
-ARCHITECTURES=amd64
+ARCHITECTURES=amd64 arm64
 
 # Setup linker flags option for build that inter-operate with variable names in src code
 LDFLAGS=-ldflags "-X main.Version=${VERSION} -X main.Build=${BUILD}"
