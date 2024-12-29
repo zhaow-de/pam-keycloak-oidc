@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 )
