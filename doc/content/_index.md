@@ -6,7 +6,7 @@ _(User documentation for GitHub repo https://github.com/zhaow-de/pam-keycloak-oi
 
 # pam-keycloak-oidc
 
-Current version: **1.2.2**
+Current version: **1.3.0**
 
 ## Overview
 
