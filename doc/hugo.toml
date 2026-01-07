@@ -1,0 +1,18 @@
+baseURL = 'https://zhaow-de.github.io/pam-keycloak-oidc/'
+languageCode = 'en-us'
+title = 'pam-keycloak-oidc'
+theme = "hugo-book"
+
+enableGitInfo = false
+
+
+[params]
+  BookTheme = 'auto'
+  BookToC = true
+  BookComments = false
+  BookSection = "/"
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
