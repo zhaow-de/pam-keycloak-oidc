@@ -6,6 +6,11 @@ tmp/
 
 pam-keycloak-oidc.*
 
+### Claude Code
+
+.claude/
+CLAUDE.md
+
 ### Windows template
 # Windows thumbnail cache files
 Thumbs.db
@@ -388,4 +393,3 @@ dist
 !.vscode/launch.json
 !.vscode/extensions.json
 *.code-workspace
-
