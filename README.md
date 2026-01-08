@@ -9,5 +9,6 @@ Visit https://zhaow-de.github.io/pam-keycloak-oidc/ for detailed documentation.
 
 ## Credits
 
-* Thanks @MattiL for the [alternative signing method](https://github.com/MattiL/pam-keycloak-oidc/tree/ecc) support
-* Thanks @willstott101 for adding [arm64 support](https://github.com/willstott101/pam-keycloak-oidc/commit/554076f40a597ab0ec24a1578e624b55d2686111) in the build pipeline
+* Thanks [@MattiL](https://github.com/mattilinnanvuori) for the [alternative signing method](https://github.com/MattiL/pam-keycloak-oidc/tree/ecc) support
+* Thanks [@willstott101](https://github.com/willstott101) for adding [arm64 support](https://github.com/willstott101/pam-keycloak-oidc/commit/554076f40a597ab0ec24a1578e624b55d2686111) in the build pipeline
+* Thanks [@ihard](https://github.com/ihard) for the `otp-only` option
