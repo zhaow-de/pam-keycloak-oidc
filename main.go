@@ -12,13 +12,11 @@ import (
 	"math"
 	"net/url"
 	"os"
-	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/BurntSushi/toml"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
@@ -30,37 +28,14 @@ const digits int = 6
 // interval in seconds between two OTP tokens. Google Authenticator expects this to be 30 seconds
 const interval int64 = 30
 
-type Config struct {
-	ClientId                 string            `toml:"client-id"`
-	ClientSecret             string            `toml:"client-secret"`
-	RedirectUri              string            `toml:"redirect-url"`
-	Scope                    string            `toml:"scope"`
-	AuthEndpoint             string            `toml:"endpoint-auth-url"`
-	TokenEndpoint            string            `toml:"endpoint-token-url"`
-	UsernameFormat           string            `toml:"username-format"`
-	MandatoryUserRole        string            `toml:"vpn-user-role"`
-	AccessTokenSigningMethod string            `toml:"access-token-signing-method"`
-	XORKey                   string            `toml:"xor-key"`
-	OTPOnly                  bool              `toml:"otp-only"`
-	ExtraParameters          map[string]string `toml:"extra-parameters"`
-}
-
-// load config file
+// loadConfig loads configuration from the default location.
+// Maintained for backward compatibility - calls log.Fatal on error.
 func loadConfig() *Config {
-	var configFile string
-	if exeName, err := os.Executable(); err != nil {
-		log.Fatal("Unable to get current executable name. Error: ", err)
-	} else {
-		configFile = filepath.Clean(exeName + ".tml")
-	}
-	if _, err := os.Stat(configFile); err != nil {
-		log.Fatal(err)
-	}
-	var config Config
-	if _, err := toml.DecodeFile(configFile, &config); err != nil {
+	config, err := loadConfigWithError()
+	if err != nil {
 		log.Fatal("Unable to load config file. Error: ", err)
 	}
-	return &config
+	return config
 }
 
 // encryptDecrypt runs XOR encryption on the input string, encrypting it if it hasn't already been,
