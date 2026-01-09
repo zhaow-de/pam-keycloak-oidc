@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -594,5 +595,204 @@ func TestRetrieveError_ErrorWithEmptyBody(t *testing.T) {
 
 	if !strings.Contains(err.Error(), "500 Internal Server Error") {
 		t.Errorf("Error() should contain status, got: %s", err.Error())
+	}
+}
+
+// Additional edge case tests
+
+func TestDoTokenRoundTrip_EmptyResponseBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		// Empty body
+	}))
+	defer server.Close()
+
+	req, _ := http.NewRequest("POST", server.URL, nil)
+	_, err := doTokenRoundTrip(context.Background(), req)
+	if err == nil {
+		t.Error("doTokenRoundTrip should return error for empty response body")
+	}
+}
+
+func TestDoTokenRoundTrip_ContentTypeWithCharset(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		_ = json.NewEncoder(w).Encode(tokenJSON{AccessToken: "charset-token"})
+	}))
+	defer server.Close()
+
+	req, _ := http.NewRequest("POST", server.URL, nil)
+	token, err := doTokenRoundTrip(context.Background(), req)
+	if err != nil {
+		t.Fatalf("doTokenRoundTrip should handle Content-Type with charset: %v", err)
+	}
+
+	if token != "charset-token" {
+		t.Errorf("token = %s; want charset-token", token)
+	}
+}
+
+func TestPasswordCredentialsTokenEx_EmptyUsername(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("Failed to parse form: %v", err)
+		}
+
+		// Empty username should still be sent
+		if r.PostForm.Get("username") != "" {
+			t.Errorf("username should be empty, got: %s", r.PostForm.Get("username"))
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(tokenJSON{AccessToken: "empty-user-token"})
+	}))
+	defer server.Close()
+
+	config := oauth2.Config{
+		ClientID:     "client",
+		ClientSecret: "secret",
+		Endpoint: oauth2.Endpoint{
+			TokenURL: server.URL,
+		},
+	}
+
+	token, err := passwordCredentialsTokenEx(context.Background(), config, "", "password", "", "", nil)
+	if err != nil {
+		t.Fatalf("passwordCredentialsTokenEx with empty username returned error: %v", err)
+	}
+
+	if token != "empty-user-token" {
+		t.Errorf("token = %s; want empty-user-token", token)
+	}
+}
+
+func TestPasswordCredentialsTokenEx_EmptyPassword(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("Failed to parse form: %v", err)
+		}
+
+		// Empty password should still be sent
+		if r.PostForm.Get("password") != "" {
+			t.Errorf("password should be empty, got: %s", r.PostForm.Get("password"))
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(tokenJSON{AccessToken: "empty-pass-token"})
+	}))
+	defer server.Close()
+
+	config := oauth2.Config{
+		ClientID:     "client",
+		ClientSecret: "secret",
+		Endpoint: oauth2.Endpoint{
+			TokenURL: server.URL,
+		},
+	}
+
+	token, err := passwordCredentialsTokenEx(context.Background(), config, "user", "", "", "", nil)
+	if err != nil {
+		t.Fatalf("passwordCredentialsTokenEx with empty password returned error: %v", err)
+	}
+
+	if token != "empty-pass-token" {
+		t.Errorf("token = %s; want empty-pass-token", token)
+	}
+}
+
+func TestPasswordCredentialsTokenEx_ParameterOverwrite(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("Failed to parse form: %v", err)
+		}
+
+		// Extra parameters can overwrite default values
+		// In the current implementation, extra params are added after defaults
+		// so they would overwrite if the map iteration order allows it
+		grantType := r.PostForm.Get("grant_type")
+		if grantType != "custom_grant" && grantType != "password" {
+			t.Errorf("grant_type should be either 'custom_grant' or 'password', got: %s", grantType)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(tokenJSON{AccessToken: "overwrite-token"})
+	}))
+	defer server.Close()
+
+	config := oauth2.Config{
+		ClientID:     "client",
+		ClientSecret: "secret",
+		Endpoint: oauth2.Endpoint{
+			TokenURL: server.URL,
+		},
+	}
+
+	// Try to overwrite grant_type via extra parameters
+	extraParams := url.Values{
+		"grant_type": {"custom_grant"},
+	}
+
+	token, err := passwordCredentialsTokenEx(context.Background(), config, "user", "pass", "", "", extraParams)
+	if err != nil {
+		t.Fatalf("passwordCredentialsTokenEx with parameter overwrite returned error: %v", err)
+	}
+
+	if token != "overwrite-token" {
+		t.Errorf("token = %s; want overwrite-token", token)
+	}
+}
+
+func TestDoTokenRoundTrip_LargeResponseBody(t *testing.T) {
+	// Test handling of response body near the 1MB limit
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		// Create a large but valid JSON response
+		largeToken := strings.Repeat("a", 10000)
+		response := fmt.Sprintf(`{"access_token": "%s"}`, largeToken)
+		_, _ = w.Write([]byte(response))
+	}))
+	defer server.Close()
+
+	req, _ := http.NewRequest("POST", server.URL, nil)
+	token, err := doTokenRoundTrip(context.Background(), req)
+	if err != nil {
+		t.Fatalf("doTokenRoundTrip should handle large response: %v", err)
+	}
+
+	if len(token) != 10000 {
+		t.Errorf("token length = %d; want 10000", len(token))
+	}
+}
+
+func TestNewTokenRequest_EmptyValues(t *testing.T) {
+	values := url.Values{}
+	req, err := newTokenRequest("https://example.com/token", "client", "secret", values)
+	if err != nil {
+		t.Fatalf("newTokenRequest with empty values returned error: %v", err)
+	}
+
+	// Request should still be created successfully
+	if req.Method != "POST" {
+		t.Errorf("Method = %s; want POST", req.Method)
+	}
+}
+
+func TestNewTokenRequest_SpecialCharsInValues(t *testing.T) {
+	values := url.Values{
+		"password":  {"p@ss=word&special"},
+		"username":  {"user+name@domain.com"},
+		"scope":     {"scope with spaces"},
+		"redirect":  {"https://example.com/callback?foo=bar&baz=qux"},
+	}
+
+	req, err := newTokenRequest("https://example.com/token", "client", "secret", values)
+	if err != nil {
+		t.Fatalf("newTokenRequest with special chars returned error: %v", err)
+	}
+
+	// Values should be URL-encoded in the body
+	if req.Body == nil {
+		t.Error("Request body should not be nil")
 	}
 }

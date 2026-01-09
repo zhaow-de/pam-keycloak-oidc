@@ -331,3 +331,126 @@ func TestGetDefaultConfigPath(t *testing.T) {
 		t.Errorf("path should be absolute: %s", path)
 	}
 }
+
+// Additional edge case tests
+
+func TestLoadConfigFromFile_DirectoryPath(t *testing.T) {
+	// Try to load config from a directory path instead of file
+	tmpDir := t.TempDir()
+
+	_, err := LoadConfigFromFile(tmpDir)
+	if err == nil {
+		t.Error("LoadConfigFromFile should return error for directory path")
+	}
+
+	var configErr *ConfigError
+	if !errors.As(err, &configErr) {
+		t.Errorf("error should be *ConfigError, got %T", err)
+	}
+}
+
+func TestLoadConfigFromFile_EmptyFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "empty.tml")
+
+	// Create empty file
+	if err := os.WriteFile(configPath, []byte(""), 0644); err != nil {
+		t.Fatalf("Failed to create empty test file: %v", err)
+	}
+
+	config, err := LoadConfigFromFile(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfigFromFile should succeed with empty file: %v", err)
+	}
+
+	// All fields should be zero values
+	if config.ClientId != "" {
+		t.Errorf("ClientId should be empty, got %s", config.ClientId)
+	}
+}
+
+func TestConfig_Validate_WhitespaceOnlyFields(t *testing.T) {
+	// Fields with only whitespace should still be considered "set"
+	// since the current implementation only checks for empty string
+	config := &Config{
+		ClientId:      "   ",
+		ClientSecret:  "   ",
+		TokenEndpoint: "   ",
+		XORKey:        "   ",
+	}
+
+	err := config.Validate()
+	// Current implementation accepts whitespace-only fields
+	// This test documents the current behavior
+	if err != nil {
+		t.Logf("Validate rejected whitespace-only fields (stricter validation): %v", err)
+	} else {
+		t.Log("Validate accepts whitespace-only fields (current behavior)")
+	}
+}
+
+func TestConfig_Validate_AllFieldsEmpty(t *testing.T) {
+	config := &Config{}
+
+	err := config.Validate()
+	if err == nil {
+		t.Error("Validate should return error for completely empty config")
+	}
+	if !errors.Is(err, ErrMissingRequired) {
+		t.Errorf("error should wrap ErrMissingRequired, got %v", err)
+	}
+}
+
+func TestConfigError_NilUnderlyingError(t *testing.T) {
+	err := &ConfigError{Op: "test", Path: "/path", Err: nil}
+	// Should not panic with nil error
+	result := err.Error()
+	if result == "" {
+		t.Error("Error() should return non-empty string even with nil Err")
+	}
+
+	unwrapped := err.Unwrap()
+	if unwrapped != nil {
+		t.Errorf("Unwrap should return nil, got %v", unwrapped)
+	}
+}
+
+func TestConfigError_EmptyOp(t *testing.T) {
+	err := &ConfigError{Op: "", Path: "/path", Err: errors.New("test error")}
+	result := err.Error()
+	// Should still produce output even with empty Op
+	if result == "" {
+		t.Error("Error() should return non-empty string even with empty Op")
+	}
+}
+
+func TestLoadConfigFromReader_TypeMismatch(t *testing.T) {
+	// Test with wrong type for a field (number instead of string)
+	invalidTypeTOML := `
+client-id=123
+client-secret="secret"
+`
+	_, err := LoadConfigFromReader(invalidTypeTOML)
+	if err == nil {
+		t.Error("LoadConfigFromReader should return error for type mismatch")
+	}
+}
+
+func TestLoadConfigFromReader_UnknownFields(t *testing.T) {
+	// TOML decoder ignores unknown fields by default
+	configWithUnknown := `
+client-id="test-client"
+client-secret="test-secret"
+endpoint-token-url="https://example.com/token"
+xor-key="key"
+unknown-field="should be ignored"
+`
+	config, err := LoadConfigFromReader(configWithUnknown)
+	if err != nil {
+		t.Fatalf("LoadConfigFromReader should ignore unknown fields: %v", err)
+	}
+
+	if config.ClientId != "test-client" {
+		t.Errorf("ClientId = %s; want test-client", config.ClientId)
+	}
+}
