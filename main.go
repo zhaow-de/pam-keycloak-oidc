@@ -8,8 +8,10 @@ import (
 	"encoding/ascii85"
 	"encoding/base32"
 	"fmt"
+	"io"
 	"log"
 	"math"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -19,6 +21,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
@@ -42,6 +45,8 @@ type Config struct {
 	AccessTokenSigningMethod string            `toml:"access-token-signing-method"`
 	XORKey                   string            `toml:"xor-key"`
 	OTPOnly                  bool              `toml:"otp-only"`
+	JwksUrl                  string            `toml:"jwks-url"`
+	IssuerUrl                string            `toml:"issuer-url"`
 	ExtraParameters          map[string]string `toml:"extra-parameters"`
 }
 
@@ -49,18 +54,56 @@ type Config struct {
 func loadConfig() *Config {
 	var configFile string
 	if exeName, err := os.Executable(); err != nil {
-		log.Fatal("Unable to get current executable name. Error: ", err)
+		log.Print("Unable to get current executable name. Error: ", err)
+		os.Exit(4) // PAM_SYSTEM_ERR
 	} else {
 		configFile = filepath.Clean(exeName + ".tml")
 	}
 	if _, err := os.Stat(configFile); err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		os.Exit(4) // PAM_SYSTEM_ERR
 	}
 	var config Config
 	if _, err := toml.DecodeFile(configFile, &config); err != nil {
-		log.Fatal("Unable to load config file. Error: ", err)
+		log.Print("Unable to load config file. Error: ", err)
+		os.Exit(4) // PAM_SYSTEM_ERR
 	}
 	return &config
+}
+
+// fetchJWKS retrieves the JSON Web Key Set from the Keycloak JWKS endpoint.
+// Returns a keyfunc compatible with jwt.Parse for signature verification.
+// Since the PAM module is a short-lived process (spawned per auth attempt),
+// we do a single HTTP GET instead of background refresh.
+func fetchJWKS(jwksURL string) (jwt.Keyfunc, error) {
+	if jwksURL == "" {
+		return nil, fmt.Errorf("jwks-url is not configured")
+	}
+	if !strings.HasPrefix(jwksURL, "https://") {
+		return nil, fmt.Errorf("jwks-url must use HTTPS")
+	}
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(jwksURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch JWKS from %s: %w", jwksURL, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("JWKS endpoint returned HTTP %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 1 MB max
+	if err != nil {
+		return nil, fmt.Errorf("failed to read JWKS response: %w", err)
+	}
+
+	k, err := keyfunc.NewJWKSetJSON(body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse JWKS: %w", err)
+	}
+
+	return k.Keyfunc, nil
 }
 
 // encryptDecrypt runs XOR encryption on the input string, encrypting it if it hasn't already been,
@@ -160,8 +203,42 @@ func calculateOtpToken(secret string, timestamp int64) string {
 	return fmt.Sprintf(fmt.Sprintf("%%0%dd", digits), code)
 }
 
+// Build-time variables set via -ldflags
+var Version = "dev"
+var Build = "unknown"
+
 func main() {
+	// Handle CLI flags (before PAM auth flow)
+	if len(os.Args) == 2 {
+		switch os.Args[1] {
+		case "--version", "-v":
+			fmt.Printf("pam-keycloak-oidc %s (build %s)\n", Version, Build)
+			return
+		case "--help", "-h":
+			fmt.Println("pam-keycloak-oidc — PAM module for Keycloak OIDC authentication")
+			fmt.Printf("Version: %s (build %s)\n\n", Version, Build)
+			fmt.Println("Usage:")
+			fmt.Println("  pam-keycloak-oidc                        PAM authentication mode (reads PAM_USER env + password from stdin)")
+			fmt.Println("  pam-keycloak-oidc <username> <secret>    Generate encoded username from real username and TOTP secret")
+			fmt.Println("  pam-keycloak-oidc <encoded-username>     Decode and verify encoded username")
+			fmt.Println("  pam-keycloak-oidc --version              Show version")
+			fmt.Println("  pam-keycloak-oidc --help                 Show this help")
+			fmt.Printf("\nConfig file: <binary-path>.tml ('%s.tml')\n", os.Args[0])
+			return
+		}
+	}
+
 	config := loadConfig()
+
+	if config.IssuerUrl == "" {
+		log.Print("issuer-url is not configured")
+		os.Exit(4) // PAM_SYSTEM_ERR
+	}
+	if config.JwksUrl == "" {
+		log.Print("jwks-url is not configured")
+		os.Exit(4) // PAM_SYSTEM_ERR
+	}
+
 	//
 	// check the number of arguments to determine the scenario:
 	//   two arguments: generate the secret username
@@ -247,28 +324,55 @@ func main() {
 		os.Exit(2)
 	}
 
-	token, _ := jwt.Parse(accessToken, func(token *jwt.Token) (interface{}, error) {
-		// important to validate the `alg` presented is what we expected, according to:
-		// https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/
-		if strings.HasPrefix(token.Header["alg"].(string), "RS") {
-		    if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			    log.Fatal(sid, "Unexpected signing method: ", token.Header["alg"])
-		    }
-		} else if strings.HasPrefix(token.Header["alg"].(string), "ES") {
-		    if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
-			    log.Fatal(sid, "Unexpected signing method: ", token.Header["alg"])
-		    }
-        } else if _, ok := token.Method.(*jwt.SigningMethodEd25519); !ok {
-			    log.Fatal(sid, "Unexpected signing method: ", token.Header["alg"])
-		}
-		return token, nil
-	})
-	if token == nil {
-		log.Fatal(sid, "Encountered invalid JWT token but golang.org/x/oauth2 was okay with it")
+	// Fetch JWKS and verify JWT signature
+	jwksKeyfunc, err := fetchJWKS(config.JwksUrl)
+	if err != nil {
+		log.Print(sid, "Failed to fetch JWKS: ", err)
+		os.Exit(4) // PAM_SYSTEM_ERR
 	}
-	// with dgrijalva/jwt-go we must not verify token.Valid because of a bug, the library requires the SSL certificate
-	// start with ----BEGIN, but it should be -----BEGIN. that's why the verification is always invalid.
-	if claims := token.Claims.(jwt.MapClaims); claims != nil {
+
+	token, err := jwt.Parse(accessToken, func(token *jwt.Token) (interface{}, error) {
+		// Validate the signing algorithm to prevent algorithm confusion attacks
+		// Reference: https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/
+		alg, _ := token.Header["alg"].(string)
+		if config.AccessTokenSigningMethod != "" && alg != config.AccessTokenSigningMethod {
+			return nil, fmt.Errorf("Algorithm mismatch: token has %s, config expects %s", alg, config.AccessTokenSigningMethod)
+		}
+		switch {
+		case strings.HasPrefix(alg, "RS"):
+			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+				return nil, fmt.Errorf("Unexpected signing method: %s", alg)
+			}
+		case strings.HasPrefix(alg, "ES"):
+			if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
+				return nil, fmt.Errorf("Unexpected signing method: %s", alg)
+			}
+		case strings.HasPrefix(alg, "EdDSA"):
+			if _, ok := token.Method.(*jwt.SigningMethodEd25519); !ok {
+				return nil, fmt.Errorf("Unexpected signing method: %s", alg)
+			}
+		default:
+			return nil, fmt.Errorf("Unsupported signing method: %s", alg)
+		}
+		// Delegate to JWKS keyfunc to return the correct public key
+		return jwksKeyfunc(token)
+	},
+		jwt.WithIssuer(config.IssuerUrl),  // reject tokens from other realms
+		jwt.WithAudience(config.ClientId), // reject tokens issued for other clients
+		jwt.WithExpirationRequired(),      // reject tokens without "exp" claim
+	)
+
+	if err != nil {
+		log.Print(sid, "JWT verification failed: ", err)
+		os.Exit(7)
+	}
+	if !token.Valid {
+		log.Print(sid, "JWT token is not valid")
+		os.Exit(7)
+	}
+
+	// Token signature verified -- check role claims
+	if claims, ok := token.Claims.(jwt.MapClaims); ok {
 		if roles, ok := claims[config.Scope]; ok {
 			for _, item := range roles.([]interface{}) {
 				if reflect.ValueOf(item).Kind() == reflect.String && item == config.MandatoryUserRole {

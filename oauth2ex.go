@@ -6,14 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golang.org/x/net/context/ctxhttp"
-	"golang.org/x/oauth2"
 	"io"
 	"io/ioutil"
 	"mime"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"golang.org/x/net/context/ctxhttp"
+	"golang.org/x/oauth2"
 )
 
 // tokenJSON is the struct representing the HTTP response from OAuth2
@@ -136,10 +137,12 @@ func passwordCredentialsTokenEx(ctx context.Context, c oauth2.Config, username, 
 		values.Set("scope", scope)
 	}
 
-	if parameters != nil {
-		for k, v := range parameters {
-			values[k] = v
-		}
+	if parameters == nil {
+		parameters = make(url.Values)
+	}
+
+	for k, v := range parameters {
+		values[k] = v
 	}
 
 	return retrieveToken(ctx, &c, values)

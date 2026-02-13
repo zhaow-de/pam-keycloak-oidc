@@ -7,8 +7,8 @@ K := $(foreach exec,$(EXECUTABLES),\
 ROOT_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 BINARY=pam-keycloak-oidc
-VERSION=1.4.0
-BUILD=`git rev-parse HEAD`
+VERSION=1.5.0
+BUILD=$(shell git rev-parse HEAD)
 PLATFORMS=darwin linux windows
 ARCHITECTURES=amd64 arm64
 
@@ -20,6 +20,10 @@ all: clean build_all
 .PHONY: build
 build: ## Build the binary for the local architecture
 	go build ${LDFLAGS} -o ${BINARY}
+
+.PHONY: linux_build
+linux_build: ## Build the binary for Linux amd64
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ${LDFLAGS} -o ${BINARY}
 
 .PHONY: build_all
 build_all: ## Build the binary for all architectures

@@ -4,7 +4,7 @@ out/
 vendor/
 tmp/
 
-pam-keycloak-oidc.*
+pam-keycloak-oidc*
 
 ### Claude Code
 
