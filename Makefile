@@ -7,7 +7,7 @@ K := $(foreach exec,$(EXECUTABLES),\
 ROOT_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 BINARY=pam-keycloak-oidc
-VERSION=1.5.0
+VERSION=1.5.1
 BUILD=$(shell git rev-parse HEAD)
 PLATFORMS=darwin linux windows
 ARCHITECTURES=amd64 arm64
@@ -32,10 +32,19 @@ build_all: ## Build the binary for all architectures
 	$(shell export GOOS=$(GOOS); export GOARCH=$(GOARCH); [[ $(GOOS) == "windows" ]] && export EXT=".exe"; go build -v -o $(BINARY).$(GOOS)-$(GOARCH)$${EXT})))
 	$(info All compiled!)
 
+.PHONY: snapshot
+snapshot: ## Build packages locally (RPM + DEB) without publishing — requires goreleaser
+	goreleaser release --snapshot --clean
+
+.PHONY: test
+test: ## Run tests
+	go test ./...
+
 # Remove only what we've created
 clean:
 	@find ${ROOT_DIR} -name '${BINARY}[.?][a-zA-Z0-9]*[-?][a-zA-Z0-9]*' -delete
+	@rm -rf dist/
 
 .PHONY: help
 help: ## Get help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-10s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-14s\033[0m %s\n", $$1, $$2}'
