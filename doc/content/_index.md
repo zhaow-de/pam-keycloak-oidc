@@ -2,11 +2,13 @@
 title: "User documentation"
 ---
 
-_(User documentation for GitHub repo https://github.com/zhaow-de/pam-keycloak-oidc)_
+_(User documentation for GitHub repo https://github.com/revalew/pam-keycloak-oidc)_
+
+_Forked from [zhaow-de/pam-keycloak-oidc](https://github.com/zhaow-de/pam-keycloak-oidc) with JWKS signature verification, issuer/audience validation, and updated documentation._
 
 # pam-keycloak-oidc
 
-Current version: **1.4.0**
+Current version: **1.5.0**
 
 ## Overview
 
@@ -15,7 +17,9 @@ MFA (Multi-Factor Authentication) or TOTP (Time-based One-time Password) is supp
 
 In theory, it should work with any identity provider which supports OpenID Connect 1.0 or OAuth2 with grant type
 `password`, although it is only tested with [Keycloak](https://www.keycloak.org/).
-Please help create PR for the documentation of other established public identity providers.
+
+For a comprehensive end-to-end deployment guide including Keycloak configuration, LDAP/AD federation, PAM setup,
+and YubiKey PIV fallback, see [KC_CONFIG.md](https://github.com/revalew/pam-keycloak-oidc/blob/main/KC_CONFIG.md).
 
 
 ## MFA/TOTP handling

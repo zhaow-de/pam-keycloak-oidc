@@ -5,4 +5,5 @@ title: "Identity providers"
 
 # Identity provider-specific configurations
 
-* [Keycloak 12.x](./keyclock-12.x/)
+* [Keycloak 26.x](./keycloak-26.x/) (current)
+* [Keycloak 12.x](./keycloak-12.x/) (legacy)

@@ -7,7 +7,7 @@ title: "Getting started"
 
 {{% steps %}}
 
-1. Download the precompiled binary file for the corresponding operating system from [Github](https://github.com/zhaow-de/pam-keycloak-oidc/releases), save it to the Linux server, e.g., as `/opt/pam-keycloak-oidc/pam-keycloak-oidc`. In case the
+1. Download the precompiled binary file for the corresponding operating system from [Github](https://github.com/revalew/pam-keycloak-oidc/releases), save it to the Linux server, e.g., as `/opt/pam-keycloak-oidc/pam-keycloak-oidc`. In case the
 platform is not amd64 or arm64, compile this golang application for the appropriate architecture.
 
 2. ```shell
@@ -40,7 +40,7 @@ platform is not amd64 or arm64, compile this golang application for the appropri
 6. Config PAM. Create PAM config file, e.g. `/etc/pam.d/radiusd`
    ```
    account	required			pam_permit.so
-   auth	[success=1 default=ignore]	pam_exec.so	expose_authtok	log=/var/log/pam-keycloak-oidc.log	/opt/pam-keycloak-oidcpam-keycloak-oidc
+   auth	[success=1 default=ignore]	pam_exec.so	expose_authtok	log=/var/log/pam-keycloak-oidc.log	/opt/pam-keycloak-oidc/pam-keycloak-oidc
    auth	requisite			pam_deny.so
    auth	required			pam_permit.so
    ```

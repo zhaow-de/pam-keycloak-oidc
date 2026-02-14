@@ -1,0 +1,49 @@
+# pam-keycloak-oidc configuration
+# Docs: https://github.com/revalew/pam-keycloak-oidc
+#
+# This file MUST be located at <binary-path>.tml
+# Default: /opt/pam-keycloak-oidc/pam-keycloak-oidc.tml
+#
+# IMPORTANT: This file contains secrets — keep permissions at 0600
+#   chmod 0600 /opt/pam-keycloak-oidc/pam-keycloak-oidc.tml
+
+# -- Keycloak connection --
+# Name of the dedicated OIDC client in Keycloak
+client-id        = "ssh-client"
+# Client secret (Keycloak -> Clients -> ssh-client -> Credentials)
+client-secret    = "CHANGE_ME"
+# Special callback address for no-callback (CLI) scenario
+redirect-url     = "urn:ietf:wg:oauth:2.0:oob"
+
+# OAuth2 scope — CRITICAL: this value is also used as the JWT claim key.
+# Code does: claims[config.Scope] — MUST match Token Claim Name in the
+# Keycloak mapper. Do NOT put "openid" here.
+scope = "ssh_roles"
+
+# -- SERVER LABEL: required role for this machine --
+# Only Keycloak users assigned this role will be granted access.
+# Change per server group: dev-ssh, qa-ssh, oracle-ssh, admin-ssh, etc.
+vpn-user-role    = "CHANGE_ME"
+
+# -- Endpoints (adjust realm name) --
+endpoint-auth-url  = "https://keycloak.example.com/realms/REALM/protocol/openid-connect/auth"
+endpoint-token-url = "https://keycloak.example.com/realms/REALM/protocol/openid-connect/token"
+
+# JWKS endpoint for JWT signature verification
+jwks-url = "https://keycloak.example.com/realms/REALM/protocol/openid-connect/certs"
+
+# Issuer URL — must match the "iss" claim in Keycloak tokens
+issuer-url = "https://keycloak.example.com/realms/REALM"
+
+# -- Token validation --
+# 1:1 copy, no substitution required
+username-format              = "%s"
+# Must match the signing algorithm configured in Keycloak client
+access-token-signing-method  = "RS256"
+
+# XOR key for encoded username feature — REQUIRED even if not used.
+# Without this, binary panics with "integer divide by zero".
+xor-key = "CHANGE_ME"
+
+# Use only OTP code for auth (no password). Default: false
+otp-only = false
