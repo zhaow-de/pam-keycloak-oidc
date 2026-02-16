@@ -1,6 +1,6 @@
 ---
 weight: 1
-title: "Getting started"
+title: 'Getting started'
 ---
 
 # Getting started
@@ -116,12 +116,15 @@ sudo chmod 755 /opt/pam-keycloak-oidc/test_token.sh
 {{% steps %}}
 
 1. Edit the configuration file. See [Configuration](../config) for field reference.
+
    ```shell
    sudo vim /opt/pam-keycloak-oidc/pam-keycloak-oidc.tml
    ```
+
    Refer to the [specific IdP server](../servers/) guide for Keycloak settings.
 
 2. "Local" validation:
+
    ```shell
    # without MFA. Assuming a user test1 with password password1
    export PAM_USER=test1
@@ -134,6 +137,7 @@ sudo chmod 755 /opt/pam-keycloak-oidc/test_token.sh
    export PAM_USER=test3
    echo 987654 | /opt/pam-keycloak-oidc/pam-keycloak-oidc
    ```
+
    You should see message like: "...(test1) Authentication succeeded"
 
 3. Configure PAM. Create PAM config file, e.g. `/etc/pam.d/radiusd`
@@ -160,4 +164,5 @@ export SECRET='abc!!def$ghi'
 # RIGHT - in the .tml config file, TOML handles double quotes correctly
 # client-secret="abc!!def$ghi"
 ```
+
 {{% /hint %}}

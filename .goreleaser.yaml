@@ -9,10 +9,12 @@ env:
 
 before:
   hooks:
-    - go mod tidy
+    - cd src && go mod tidy
 
 builds:
-  - env:
+  - main: ./src
+    binary: pam-keycloak-oidc
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
@@ -42,9 +44,9 @@ changelog:
 archives:
   - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}'
     files:
-      - packaging/pam-keycloak-oidc.tml.example
-      - packaging/check-keycloak-health.sh
-      - packaging/test_token.sh
+      - src/packaging/pam-keycloak-oidc.tml.example
+      - src/packaging/check-keycloak-health.sh
+      - src/packaging/test_token.sh
 
 nfpms:
   - file_name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}'
@@ -66,29 +68,29 @@ nfpms:
     # Files to include in the package (besides the binary)
     contents:
       # Template config — noreplace means RPM won't overwrite user's edits on upgrade
-      - src: packaging/pam-keycloak-oidc.tml.example
+      - src: src/packaging/pam-keycloak-oidc.tml.example
         dst: /opt/pam-keycloak-oidc/pam-keycloak-oidc.tml
         type: 'config|noreplace'
         file_info:
           mode: 0600
 
       # Reference copy of the template (always overwritten on upgrade)
-      - src: packaging/pam-keycloak-oidc.tml.example
+      - src: src/packaging/pam-keycloak-oidc.tml.example
         dst: /opt/pam-keycloak-oidc/pam-keycloak-oidc.tml.example
         file_info:
           mode: 0644
 
       # Health check script
-      - src: packaging/check-keycloak-health.sh
+      - src: src/packaging/check-keycloak-health.sh
         dst: /opt/pam-keycloak-oidc/check-keycloak-health.sh
         file_info:
           mode: 0755
 
       # Test script
-      - src: packaging/test_token.sh
+      - src: src/packaging/test_token.sh
         dst: /opt/pam-keycloak-oidc/test_token.sh
         file_info:
           mode: 0755
 
     scripts:
-      postinstall: packaging/postinstall.sh
+      postinstall: src/packaging/postinstall.sh

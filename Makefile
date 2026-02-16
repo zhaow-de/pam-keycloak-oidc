@@ -19,17 +19,17 @@ all: clean build_all
 
 .PHONY: build
 build: ## Build the binary for the local architecture
-	go build ${LDFLAGS} -o ${BINARY}
+	cd src && go build ${LDFLAGS} -o ../${BINARY}
 
 .PHONY: linux_build
 linux_build: ## Build the binary for Linux amd64
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ${LDFLAGS} -o ${BINARY}
+	cd src && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ${LDFLAGS} -o ../${BINARY}
 
 .PHONY: build_all
 build_all: ## Build the binary for all architectures
 	$(foreach GOOS, $(PLATFORMS),\
 	$(foreach GOARCH, $(ARCHITECTURES),\
-	$(shell export GOOS=$(GOOS); export GOARCH=$(GOARCH); [[ $(GOOS) == "windows" ]] && export EXT=".exe"; go build -v -o $(BINARY).$(GOOS)-$(GOARCH)$${EXT})))
+	$(shell cd src && export GOOS=$(GOOS); export GOARCH=$(GOARCH); [[ $(GOOS) == "windows" ]] && export EXT=".exe"; go build -v -o ../$(BINARY).$(GOOS)-$(GOARCH)$${EXT})))
 	$(info All compiled!)
 
 .PHONY: snapshot
@@ -38,7 +38,7 @@ snapshot: ## Build packages locally (RPM + DEB) without publishing — requires 
 
 .PHONY: test
 test: ## Run tests
-	go test ./...
+	cd src && go test ./...
 
 # Remove only what we've created
 clean:

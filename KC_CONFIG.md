@@ -260,20 +260,39 @@ For nested groups use `LOAD_GROUPS_BY_MEMBER_ATTRIBUTE_RECURSIVELY`.
 
 This is a modified fork with JWKS signature verification, issuer validation, and audience validation. The upstream version does NOT verify JWT signatures.
 
-### 3.1. Install Binary
+### 3.1. Install Package
+
+Install the RPM package from [GitHub Releases](https://github.com/revalew/pam-keycloak-oidc/releases):
 
 ```bash
-mkdir -p /opt/pam-keycloak-oidc
-# Copy the modified binary to the server (scp, ansible, etc.)
-chmod 755 /opt/pam-keycloak-oidc/pam-keycloak-oidc
+wget https://github.com/revalew/pam-keycloak-oidc/releases/latest/download/pam-keycloak-oidc_amd64.rpm
+
+sudo rpm -i pam-keycloak-oidc_amd64.rpm
+```
+
+> Replace `amd64` with `arm64` for ARM systems. DEB and tar.gz packages are also available - see [installation docs](https://revalew.github.io/pam-keycloak-oidc/install).
+
+The package installs the binary, config template, health check script, and test script to `/opt/pam-keycloak-oidc/`. SELinux context (`bin_t`) is configured automatically by the post-install script.
+
+**Upgrade (preserves your `.tml` config):**
+
+```bash
+wget https://github.com/revalew/pam-keycloak-oidc/releases/latest/download/pam-keycloak-oidc_amd64.rpm
+
+sudo rpm -U pam-keycloak-oidc_amd64.rpm
 ```
 
 ### 3.2. Configuration File
 
-File must have the same name as the binary with `.tml` extension:
+The RPM package installs a config template at `/opt/pam-keycloak-oidc/pam-keycloak-oidc.tml`. Edit it:
 
 ```bash
-cat > /opt/pam-keycloak-oidc/pam-keycloak-oidc.tml << 'EOF'
+sudo vim /opt/pam-keycloak-oidc/pam-keycloak-oidc.tml
+```
+
+Example configuration (see [config reference](https://revalew.github.io/pam-keycloak-oidc/config) for all fields):
+
+```toml
 # -- Keycloak connection --
 client-id        = "ssh-client"
 client-secret    = "YOUR_CLIENT_SECRET"
@@ -291,23 +310,32 @@ vpn-user-role    = "dev-ssh"
 endpoint-auth-url  = "https://keycloak.example.local/realms/REALM/protocol/openid-connect/auth"
 endpoint-token-url = "https://keycloak.example.local/realms/REALM/protocol/openid-connect/token"
 
-# JWKS endpoint for JWT signature verification
+# JWKS endpoint for JWT signature verification (required)
 jwks-url = "https://keycloak.example.local/realms/REALM/protocol/openid-connect/certs"
 
-# Issuer URL - must match "iss" claim in token
+# Issuer URL - must match "iss" claim in token (required)
 issuer-url = "https://keycloak.example.local/realms/REALM"
 
 # -- Token validation --
 username-format              = "%s"
 access-token-signing-method  = "RS256"
 
-# XOR key - required, without it binary panics with "integer divide by zero"
+# XOR key for encoding/decoding hardcoded username (default: "scmi")
 xor-key = "some-secret-string"
 
+# -- OTP settings --
 # Use only OTP code for auth (no password)
 otp-only = false
-EOF
+# Require OTP suffix in password (reject if missing). Default: false
+otp-require = false
+# Number of OTP characters to extract from password suffix. Default: "6"
+otp-length = "6"
+# Regex character class for OTP characters. Default: "\d" (digits only)
+# Use "[a-zA-Z0-9]" for alphanumeric tokens
+otp-class = "\d"
+```
 
+```bash
 chmod 0600 /opt/pam-keycloak-oidc/pam-keycloak-oidc.tml
 ```
 
@@ -322,44 +350,35 @@ The **only difference** between server groups is `vpn-user-role`:
 
 ### 3.3. Health Check Script
 
-Checks Keycloak reachability before the password prompt. If Keycloak is down, PAM fails immediately and SSH falls through to publickey (YubiKey PIV).
+The RPM package installs `check-keycloak-health.sh` in `/opt/pam-keycloak-oidc/`. Edit the Keycloak URL and realm:
 
 ```bash
-cat > /opt/pam-keycloak-oidc/check-keycloak-health.sh << 'EOF'
-#!/bin/bash
-# Fast Keycloak reachability check (runs before password prompt)
-# Returns 0 if Keycloak is up, non-zero otherwise
+sudo vim /opt/pam-keycloak-oidc/check-keycloak-health.sh
+```
 
+Set the correct values at the top of the script:
+
+```bash
 KC_URL="https://keycloak.example.local"
 KC_REALM="REALM"
-
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-  --connect-timeout 3 --max-time 5 \
-  "${KC_URL}/realms/${KC_REALM}/.well-known/openid-configuration" 2>/dev/null)
-
-if [ "$HTTP_CODE" = "200" ]; then
-  exit 0
-fi
-
-logger -t pam-keycloak-oidc "Keycloak unreachable (HTTP: ${HTTP_CODE:-000}), fallback active"
-exit 1
-EOF
-
-chmod 755 /opt/pam-keycloak-oidc/check-keycloak-health.sh
 ```
+
+The script checks Keycloak reachability before the password prompt. If Keycloak is down, PAM fails immediately and SSH falls through to publickey (YubiKey PIV).
 
 ### 3.4. SELinux Context
 
-All three files MUST have `bin_t` context, otherwise SELinux blocks execution from `sshd_t`.
+The RPM post-install script automatically sets `bin_t` context on all files in `/opt/pam-keycloak-oidc/`. If you need to verify or fix manually:
 
 ```bash
+# Verify
+ls -Z /opt/pam-keycloak-oidc/
+# Expected: unconfined_u:object_r:bin_t:s0 on all files
+
+# Fix if needed
 chcon -t bin_t /opt/pam-keycloak-oidc/pam-keycloak-oidc
 chcon -t bin_t /opt/pam-keycloak-oidc/pam-keycloak-oidc.tml
 chcon -t bin_t /opt/pam-keycloak-oidc/check-keycloak-health.sh
-
-# Verify
-ls -Z /opt/pam-keycloak-oidc/
-# Expected: unconfined_u:object_r:bin_t:s0 on all three files
+# chcon -t bin_t /opt/pam-keycloak-oidc/test_token.sh
 ```
 
 > **WARNING:** NEVER run `restorecon -Rv` on `/opt/pam-keycloak-oidc/` - it resets context to `usr_t` and breaks PAM.
@@ -383,6 +402,14 @@ echo '10.0.0.100 keycloak.example.local' >> /etc/hosts
 ```
 
 ### 3.7. Manual Test (before changing PAM)
+
+**Quick validation with test script** (fetches token, decodes JWT, simulates PAM login):
+
+```bash
+sudo /opt/pam-keycloak-oidc/test_token.sh
+```
+
+**Manual test:**
 
 ```bash
 export PAM_USER=testuser
@@ -723,6 +750,7 @@ systemctl restart sshd
 | `/opt/pam-keycloak-oidc/pam-keycloak-oidc` | PAM binary (modified fork with JWKS) | 755 |
 | `/opt/pam-keycloak-oidc/pam-keycloak-oidc.tml` | Config (scope, role, endpoints, secret) | 600 |
 | `/opt/pam-keycloak-oidc/check-keycloak-health.sh` | Health check script | 755 |
+| `/opt/pam-keycloak-oidc/test_token.sh` | Test script for quick role validation | 755 |
 | `/etc/pam.d/sshd` | PAM stack for SSH | - |
 | `/etc/pam.d/sudo` | PAM stack for sudo | - |
 | `/etc/ssh/sshd_config` | SSHD config (AuthenticationMethods) | - |
