@@ -109,24 +109,20 @@ Create `.git/hooks/pre-commit`:
 
 ```shell
 #!/bin/sh
-# Pre-commit hook: format check + vet
+# Pre-commit hook: format + vet
 cd src || exit 1
 
 UNFORMATTED=$(gofmt -l .)
 if [ -n "$UNFORMATTED" ]; then
-    echo "gofmt: the following files need formatting:"
+    echo "gofmt: formatting files:"
     echo "$UNFORMATTED"
-    #echo "Run: cd src && gofmt -w ."
-    #exit 1
+    gofmt -w .
+    echo "$UNFORMATTED" | xargs git add
 fi
 
-echo "Running: \"gofmt -w .\" on:"
-echo "$UNFORMATTED"
-echo ""
-
-gofmt -w . || exit 1
-
 go vet ./... || exit 1
+
+# git commit --amend --no-edit
 ```
 
 Then make it executable:
