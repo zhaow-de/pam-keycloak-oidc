@@ -44,18 +44,19 @@ archives:
     files:
       - packaging/pam-keycloak-oidc.tml.example
       - packaging/check-keycloak-health.sh
+      - packaging/test_token.sh
 
 nfpms:
   - file_name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}'
+    formats:
+      - rpm
+      - deb
     maintainer: 'revalew'
     description: >-
       PAM module for Keycloak OIDC authentication with JWKS verification.
       Provides SSH and sudo authentication against Keycloak with per-server
       role-based access control and TOTP support.
     license: MIT
-    formats:
-      - rpm
-      - deb
     bindir: /opt/pam-keycloak-oidc
 
     # RPM-specific settings
@@ -80,6 +81,12 @@ nfpms:
       # Health check script
       - src: packaging/check-keycloak-health.sh
         dst: /opt/pam-keycloak-oidc/check-keycloak-health.sh
+        file_info:
+          mode: 0755
+
+      # Test script
+      - src: packaging/test_token.sh
+        dst: /opt/pam-keycloak-oidc/test_token.sh
         file_info:
           mode: 0755
 

@@ -4,21 +4,21 @@
 
 Set up a complete SSH authentication chain:
 
-1. **LDAP/AD Federation** — Keycloak syncs users from OpenLDAP or Active Directory
-2. **SSH via Keycloak + TOTP** — Users authenticate with password + OTP code through a PAM module
-3. **Role-based access** — Different server groups require different Keycloak roles
-4. **YubiKey PIV fallback** — When Keycloak is down, admins use hardware keys via PKCS#11
+1. **LDAP/AD Federation** - Keycloak syncs users from OpenLDAP or Active Directory
+2. **SSH via Keycloak + TOTP** - Users authenticate with password + OTP code through a PAM module
+3. **Role-based access** - Different server groups require different Keycloak roles
+4. **YubiKey PIV fallback** - When Keycloak is down, admins use hardware keys via PKCS#11
 
 Authentication flow: `keyboard-interactive (Keycloak+OTP)` OR `publickey (YubiKey PIV)`.
 A health check script detects Keycloak availability and triggers automatic fallback.
 
 ---
 
-## 1. Keycloak — Client and Authentication Flow
+## 1. Keycloak - Client and Authentication Flow
 
 ### 1.1. Create OIDC Client
 
-**Clients → Create Client:**
+**Clients -> Create Client:**
 
 | Setting | Value |
 |---|---|
@@ -33,61 +33,61 @@ Save, then go to **Credentials** tab and copy the **Client Secret**.
 
 ### 1.2. Create Client Role
 
-**Clients → ssh-client → Roles → Create role:**
+**Clients -> ssh-client -> Roles -> Create role:**
 
 - Role name: `linux-ssh`
 
 ### 1.3. Create Authentication Flow
 
-**Authentication → Flows → find `direct grant` → ⋮ → Duplicate → name: `direct grant role`**
+**Authentication -> Flows -> find `direct grant` -> ⋮ -> Duplicate -> name: `direct grant role`**
 
 The duplicated flow already contains: Username Validation, Password, Conditional OTP. Keep them.
 
 **Add role check:**
 
-1. Click **Add sub-flow** → Name: `Access_by_role`, Requirement: **Conditional**
-2. Inside sub-flow: **Add execution** → `Condition - user role` → set to **Required**
+1. Click **Add sub-flow** -> Name: `Access_by_role`, Requirement: **Conditional**
+2. Inside sub-flow: **Add execution** -> `Condition - user role` -> set to **Required**
 3. Configure (gear icon):
    - Alias: `user_role`
    - User role: `ssh-client linux-ssh`
    - **Negate output: On**
-4. Inside sub-flow: **Add execution** → `Deny access` → set to **Required**
+4. Inside sub-flow: **Add execution** -> `Deny access` -> set to **Required**
 
-Logic: if user does NOT have `linux-ssh` (negate=on), condition is met → deny. Users with the role pass through.
+Logic: if user does NOT have `linux-ssh` (negate=on), condition is met -> deny. Users with the role pass through.
 
 **Final flow structure:**
 
 ```
-Username Validation          — Required
-Password                     — Required
-Direct Grant - Conditional OTP — Conditional
-  ├─ Condition - user configured — Required
-  └─ OTP                        — Required
-Access_by_role               — Conditional
-  ├─ Condition - user role (Negate=On) — Required
-  └─ Deny access                       — Required
+Username Validation                     - Required
+Password                                - Required
+Direct Grant - Conditional OTP          - Conditional
+  ├─ Condition - user configured        - Required
+  └─ OTP                                - Required
+Access_by_role                          - Conditional
+  ├─ Condition - user role (Negate=On)  - Required
+  └─ Deny access                        - Required
 ```
 
 ### 1.4. Assign Flow to Client
 
-**Clients → ssh-client → Advanced → Authentication flow overrides:**
+**Clients -> ssh-client -> Advanced -> Authentication flow overrides:**
 
 - Direct Grant Flow: `direct grant role`
 - Browser Flow: leave empty
 
 ### 1.5. Configure OTP Policy
 
-**Authentication → Required actions:**
+**Authentication -> Required actions:**
 - Configure OTP: Enabled = **On**, Set as default action = **On**
 
-**Authentication → Policies → OTP Policy:**
+**Authentication -> Policies -> OTP Policy:**
 - Look around window: `2`
 
 ### 1.6. Create Client Scope with Role Mapper
 
 This is required for the advanced PAM module (`pam-keycloak-oidc`) which reads roles from a flat JWT claim.
 
-**Client scopes → Create client scope:**
+**Client scopes -> Create client scope:**
 
 | Field | Value |
 |---|---|
@@ -95,25 +95,25 @@ This is required for the advanced PAM module (`pam-keycloak-oidc`) which reads r
 | Type | Default |
 | Protocol | OpenID Connect |
 
-Inside `ssh_roles` → **Mappers → Configure a new mapper → User Realm Role:**
+Inside `ssh_roles` -> **Mappers -> Configure a new mapper -> User Realm Role:**
 
 | Field | Value |
 |---|---|
 | Name | `realm-roles` |
 | Multivalued | On |
-| Token Claim Name | `ssh_roles` ← must match scope name exactly |
+| Token Claim Name | `ssh_roles` <- must match scope name exactly |
 | Claim JSON Type | String |
 | Add to ID token | On |
 | Add to access token | On |
 | Add to userinfo | On |
 
-**Clients → ssh-client → Client scopes → Add client scope → select `ssh_roles` → Add (Default)**
+**Clients -> ssh-client -> Client scopes -> Add client scope -> select `ssh_roles` -> Add (Default)**
 
 ### 1.7. Add Audience Mapper
 
 Without this, token has `"aud": "account"` and gets rejected by the PAM module.
 
-**Clients → ssh-client → Client scopes → click `ssh-client-dedicated` → Add mapper → By configuration → Audience:**
+**Clients -> ssh-client -> Client scopes -> click `ssh-client-dedicated` -> Add mapper -> By configuration -> Audience:**
 
 | Field | Value |
 |---|---|
@@ -126,38 +126,38 @@ Without this, token has `"aud": "account"` and gets rejected by the PAM module.
 
 Each role is a composite that includes `linux-ssh` (so the auth flow still works).
 
-**Realm roles → Create role:**
+**Realm roles -> Create role:**
 
-1. Role name: e.g. `dev-ssh` → Save
-2. Inside the role: **Action → Add associated roles → Filter by clients → select `ssh-client linux-ssh` → Assign**
+1. Role name: e.g. `dev-ssh` -> Save
+2. Inside the role: **Action -> Add associated roles -> Filter by clients -> select `ssh-client linux-ssh` -> Assign**
 
 Repeat for each server group: `qa-ssh`, `staging-ssh`, `prod-ssh`, etc.
 
 ### 1.9. Create Groups (optional, simplifies management)
 
-**Groups → Create group** (e.g. `ssh-dev`)
+**Groups -> Create group** (e.g. `ssh-dev`)
 
-Open group → **Role mapping → Assign role → select `dev-ssh` → Assign**
+Open group -> **Role mapping -> Assign role -> select `dev-ssh` -> Assign**
 
 Users added to the group automatically inherit the role.
 
 ### 1.10. Create Users
 
-**Users → Add user:**
+**Users -> Add user:**
 
 1. Fill in: Username, Email, First name, Last name
 2. Email verified: **On**
 3. Required user actions: add **Configure OTP**
-4. **Create** → Credentials tab → Set password (Temporary: Off)
-5. Groups tab → Join Group → select appropriate group
+4. **Create** -> Credentials tab -> Set password (Temporary: Off)
+5. Groups tab -> Join Group -> select appropriate group
 
 ---
 
-## 2. Keycloak — LDAP / Active Directory Federation
+## 2. Keycloak - LDAP / Active Directory Federation
 
 ### 2.1. OpenLDAP Federation
 
-**User Federation → Add new provider → LDAP:**
+**User Federation -> Add new provider -> LDAP:**
 
 | Field | Value |
 |---|---|
@@ -181,16 +181,16 @@ Users added to the group automatically inherit the role.
 | Import users | On |
 | Sync Registrations | On |
 
-Save → **Action → Sync all users**.
+Save -> **Action -> Sync all users**.
 
 ### 2.2. Active Directory Federation
 
 **Prerequisites:**
-- Dedicated service account (e.g. `svc-keycloak-ldap`) — Domain Users only, no elevated permissions
+- Dedicated service account (e.g. `svc-keycloak-ldap`) - Domain Users only, no elevated permissions
 - Firewall open TCP 636 from Keycloak servers to domain controllers
 - Root CA certificate exported as PEM
 
-**Import Root CA into Keycloak truststore** (Docker setup — mount as volume, import at container start):
+**Import Root CA into Keycloak truststore** (Docker setup - mount as volume, import at container start):
 
 ```bash
 # Export CA cert from AD
@@ -201,7 +201,7 @@ openssl s_client -connect dc01.example.local:636 \
 
 Always import the Root CA, not the leaf certificate of the domain controller.
 
-**User Federation → Add new provider → LDAP:**
+**User Federation -> Add new provider -> LDAP:**
 
 | Field | Value |
 |---|---|
@@ -212,7 +212,7 @@ Always import the Root CA, not the leaf certificate of the domain controller.
 | Bind credentials | *(service account password)* |
 | Edit mode | READ_ONLY |
 | Users DN | `OU=Users,DC=example,DC=local` |
-| Username LDAP attribute | `sAMAccountName` ← change from auto-filled `cn` |
+| Username LDAP attribute | `sAMAccountName` <- change from auto-filled `cn` |
 | RDN LDAP attribute | `cn` |
 | UUID LDAP attribute | `objectGUID` (auto) |
 | User object classes | `person, organizationalPerson, user` |
@@ -229,7 +229,7 @@ Always import the Root CA, not the leaf certificate of the domain controller.
 
 ### 2.3. Map AD Groups to Keycloak Roles
 
-**User Federation → AD provider → Mappers → Add mapper:**
+**User Federation -> AD provider -> Mappers -> Add mapper:**
 
 | Field | Value |
 |---|---|
@@ -242,21 +242,21 @@ Always import the Root CA, not the leaf certificate of the domain controller.
 | User Groups Retrieve Strategy | `LOAD_GROUPS_BY_MEMBER_ATTRIBUTE` |
 | Mode | READ_ONLY |
 
-After sync: **Groups → find imported AD group → Role mapping → Assign role → filter by clients → select `ssh-client linux-ssh` → Assign**.
+After sync: **Groups -> find imported AD group -> Role mapping -> Assign role -> filter by clients -> select `ssh-client linux-ssh` -> Assign**.
 
 For nested groups use `LOAD_GROUPS_BY_MEMBER_ATTRIBUTE_RECURSIVELY`.
 
 ### 2.4. Sync and Verify
 
-1. **Test connection** → success
-2. **Test authentication** (with service account) → success
+1. **Test connection** -> success
+2. **Test authentication** (with service account) -> success
 3. Save
-4. **Action → Sync all users**
-5. **Users → type `*` in search** → verify users appear
+4. **Action -> Sync all users**
+5. **Users -> type `*` in search** -> verify users appear
 
 ---
 
-## 3. Linux Server — PAM Module (pam-keycloak-oidc)
+## 3. Linux Server - PAM Module (pam-keycloak-oidc)
 
 This is a modified fork with JWKS signature verification, issuer validation, and audience validation. The upstream version does NOT verify JWT signatures.
 
@@ -279,8 +279,8 @@ client-id        = "ssh-client"
 client-secret    = "YOUR_CLIENT_SECRET"
 redirect-url     = "urn:ietf:wg:oauth:2.0:oob"
 
-# OAuth2 scope — also used as the JWT claim key
-# Code does: claims[config.Scope] — must match Token Claim Name in mapper
+# OAuth2 scope - also used as the JWT claim key
+# Code does: claims[config.Scope] - must match Token Claim Name in mapper
 scope = "ssh_roles"
 
 # -- Required role for THIS server group --
@@ -294,14 +294,14 @@ endpoint-token-url = "https://keycloak.example.local/realms/REALM/protocol/openi
 # JWKS endpoint for JWT signature verification
 jwks-url = "https://keycloak.example.local/realms/REALM/protocol/openid-connect/certs"
 
-# Issuer URL — must match "iss" claim in token
+# Issuer URL - must match "iss" claim in token
 issuer-url = "https://keycloak.example.local/realms/REALM"
 
 # -- Token validation --
 username-format              = "%s"
 access-token-signing-method  = "RS256"
 
-# XOR key — required, without it binary panics with "integer divide by zero"
+# XOR key - required, without it binary panics with "integer divide by zero"
 xor-key = "some-secret-string"
 
 # Use only OTP code for auth (no password)
@@ -362,7 +362,7 @@ ls -Z /opt/pam-keycloak-oidc/
 # Expected: unconfined_u:object_r:bin_t:s0 on all three files
 ```
 
-> **WARNING:** NEVER run `restorecon -Rv` on `/opt/pam-keycloak-oidc/` — it resets context to `usr_t` and breaks PAM.
+> **WARNING:** NEVER run `restorecon -Rv` on `/opt/pam-keycloak-oidc/` - it resets context to `usr_t` and breaks PAM.
 
 ### 3.5. Import Keycloak CA Certificate
 
@@ -408,7 +408,7 @@ echo 'MyPassword123456' | /opt/pam-keycloak-oidc/pam-keycloak-oidc
 cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
 ```
 
-**Step 1 — Handle 50-redhat.conf (OL9/RHEL9 only):**
+**Step 1 - Handle 50-redhat.conf (OL9/RHEL9 only):**
 
 OL9 ships `/etc/ssh/sshd_config.d/50-redhat.conf` with `ChallengeResponseAuthentication no`. Since `Include` is at the top of `sshd_config`, this file is parsed FIRST and blocks `keyboard-interactive`.
 
@@ -417,7 +417,7 @@ sed -i 's/^ChallengeResponseAuthentication no/#ChallengeResponseAuthentication n
   /etc/ssh/sshd_config.d/50-redhat.conf
 ```
 
-**Step 2 — Set directives in `/etc/ssh/sshd_config`:**
+**Step 2 - Set directives in `/etc/ssh/sshd_config`:**
 
 ```
 # === SSH Authentication: Keycloak (primary) + YubiKey PIV (fallback) ===
@@ -484,11 +484,11 @@ EOF
 
 > **CRITICAL:** Do NOT use `pam_deny.so` in this config. It returns error for ALL PAM functions including `setcred`, causing `"fatal: PAM: pam_setcred(): Permission denied"` and immediate session termination. The `default=die` flag on the health check serves the same purpose but only during the `authenticate` phase.
 
-**Why `type=auth`?** — Makes `pam_exec.so` run the command ONLY during `authenticate` phase. During `setcred` it returns `PAM_IGNORE`.
+**Why `type=auth`?** - Makes `pam_exec.so` run the command ONLY during `authenticate` phase. During `setcred` it returns `PAM_IGNORE`.
 
-**Why `ignore=ignore`?** — Without it, `PAM_IGNORE` returned during `setcred` is handled by `default=die`, causing immediate denial.
+**Why `ignore=ignore`?** - Without it, `PAM_IGNORE` returned during `setcred` is handled by `default=die`, causing immediate denial.
 
-**Why `pam_permit.so`?** — When both `pam_exec` modules return `PAM_IGNORE` during `setcred`, no module handles that phase. PAM requires at least one success — `pam_permit.so` provides it.
+**Why `pam_permit.so`?** - When both `pam_exec` modules return `PAM_IGNORE` during `setcred`, no module handles that phase. PAM requires at least one success - `pam_permit.so` provides it.
 
 ### 3.10. Configure PAM for sudo
 
@@ -498,7 +498,7 @@ Add to the beginning of `/etc/pam.d/sudo` (before other `auth` lines):
 auth sufficient pam_exec.so expose_authtok quiet log=/var/log/pam-keycloak-oidc.log /opt/pam-keycloak-oidc/pam-keycloak-oidc
 ```
 
-`sudo` doesn't need the health check — if Keycloak is unavailable, it falls back to local password.
+`sudo` doesn't need the health check - if Keycloak is unavailable, it falls back to local password.
 
 ### 3.11. Create Log File and Restart
 
@@ -539,7 +539,7 @@ usermod -aG wheel username  # only if sudo access needed
 
 When Keycloak is down, admins authenticate using YubiKey PIV hardware keys via SSH publickey. The private key never leaves the YubiKey.
 
-### 4.1. Server — Service Account
+### 4.1. Server - Service Account
 
 On each Linux server:
 
@@ -561,7 +561,7 @@ Passwordless sudo (account is already protected by PIV PIN + physical key touch)
 svc-admin ALL=(ALL) NOPASSWD: ALL
 ```
 
-### 4.2. Client (Windows) — Install Yubico PIV Tool
+### 4.2. Client (Windows) - Install Yubico PIV Tool
 
 Download MSI from: https://developers.yubico.com/yubico-piv-tool/Releases/
 
@@ -571,7 +571,7 @@ Default path: `C:\Program Files\Yubico\Yubico PIV Tool\bin\`
 Add to system PATH:
 
 ```powershell
-# PowerShell (as admin) — permanent:
+# PowerShell (as admin) - permanent:
 [Environment]::SetEnvironmentVariable("Path",
   $env:Path + ";C:\Program Files\Yubico\Yubico PIV Tool\bin", "Machine")
 ```
@@ -612,7 +612,7 @@ set PATH=%PATH%;C:\Program Files\Yubico\Yubico PIV Tool\bin
 ssh-keygen -D libykcs11.dll -e
 ```
 
-This outputs two keys — use the **first one** ("Public key for PIV Authentication"). Add it to `authorized_keys` on each server:
+This outputs two keys - use the **first one** ("Public key for PIV Authentication"). Add it to `authorized_keys` on each server:
 
 ```bash
 echo "ssh-rsa AAAAB3..." >> /home/svc-admin/.ssh/authorized_keys
@@ -620,7 +620,7 @@ echo "ssh-rsa AAAAB3..." >> /home/svc-admin/.ssh/authorized_keys
 
 > Register TWO YubiKeys per admin (primary + backup). Each generates an independent key pair. Both public keys go into `authorized_keys`.
 
-### 4.4. Client — SSH Config
+### 4.4. Client - SSH Config
 
 Add to `%USERPROFILE%\.ssh\config` (emergency entry MUST be BEFORE the wildcard):
 
@@ -639,17 +639,17 @@ Host *.example.local
 ```
 
 **Usage:**
-- Daily login (Keycloak): `ssh user@server01.example.local` → password + OTP prompt
-- Emergency login (PIV): `ssh server01-emergency` → touch YubiKey only
+- Daily login (Keycloak): `ssh user@server01.example.local` -> password + OTP prompt
+- Emergency login (PIV): `ssh server01-emergency` -> touch YubiKey only
 
-### 4.5. Optional — Cache PIN with ssh-agent
+### 4.5. Optional - Cache PIN with ssh-agent
 
 ```powershell
-# PowerShell (as admin) — one-time:
+# PowerShell (as admin) - one-time:
 Set-Service ssh-agent -StartupType Automatic
 Start-Service ssh-agent
 
-# Add PKCS#11 key (once per session — asks for PIN):
+# Add PKCS#11 key (once per session - asks for PIN):
 ssh-add -s "C:\Program Files\Yubico\Yubico PIV Tool\bin\libykcs11.dll"
 ```
 
@@ -674,10 +674,10 @@ Store the private key OFFLINE only (printed paper in safe, encrypted USB in sepa
 
 ### 5.1. In Keycloak
 
-1. **Users → Add user** → fill in details
-2. **Credentials → Set password** (Temporary: Off)
+1. **Users -> Add user** -> fill in details
+2. **Credentials -> Set password** (Temporary: Off)
 3. **Required user actions:** Configure OTP
-4. **Groups → Join Group** → appropriate group
+4. **Groups -> Join Group** -> appropriate group
 
 ### 5.2. On Each Linux Server
 
@@ -689,7 +689,7 @@ usermod -aG wheel username  # only for sudo
 ### 5.3. User Self-Service
 
 1. Open `https://keycloak.example.local/realms/REALM/account`
-2. Log in → Keycloak shows OTP setup screen with QR code
+2. Log in -> Keycloak shows OTP setup screen with QR code
 3. Scan with Microsoft Authenticator (or any TOTP app)
 4. Enter 6-digit verification code
 
@@ -706,7 +706,7 @@ ssh username@server.example.local
 
 ## 6. Rollback
 
-If anything breaks — restore original PAM config:
+If anything breaks - restore original PAM config:
 
 ```bash
 cp /etc/pam.d/sshd.bak /etc/pam.d/sshd
@@ -716,16 +716,16 @@ systemctl restart sshd
 
 ---
 
-## 7. Quick Reference — Files on Linux Server
+## 7. Quick Reference - Files on Linux Server
 
 | File | Purpose | Permissions |
 |---|---|---|
 | `/opt/pam-keycloak-oidc/pam-keycloak-oidc` | PAM binary (modified fork with JWKS) | 755 |
 | `/opt/pam-keycloak-oidc/pam-keycloak-oidc.tml` | Config (scope, role, endpoints, secret) | 600 |
 | `/opt/pam-keycloak-oidc/check-keycloak-health.sh` | Health check script | 755 |
-| `/etc/pam.d/sshd` | PAM stack for SSH | — |
-| `/etc/pam.d/sudo` | PAM stack for sudo | — |
-| `/etc/ssh/sshd_config` | SSHD config (AuthenticationMethods) | — |
+| `/etc/pam.d/sshd` | PAM stack for SSH | - |
+| `/etc/pam.d/sudo` | PAM stack for sudo | - |
+| `/etc/ssh/sshd_config` | SSHD config (AuthenticationMethods) | - |
 | `/var/log/pam-keycloak-oidc.log` | Module log | 664 |
 | `~svc-admin/.ssh/authorized_keys` | PIV + break-glass public keys | 600 |
 | `/etc/sudoers.d/svc-admin` | NOPASSWD sudo for service account | 440 |
