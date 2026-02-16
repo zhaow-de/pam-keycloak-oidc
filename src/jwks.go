@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -27,7 +28,11 @@ func fetchJWKS(jwksURL string) (jwt.Keyfunc, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch JWKS from %s: %w", jwksURL, err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			fmt.Fprintf(os.Stderr, "Error closing response body: %v\n", cerr)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("JWKS endpoint returned HTTP %d", resp.StatusCode)

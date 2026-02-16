@@ -175,23 +175,23 @@ func main() {
 		// Reference: https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/
 		alg, _ := token.Header["alg"].(string)
 		if config.AccessTokenSigningMethod != "" && alg != config.AccessTokenSigningMethod {
-			return nil, fmt.Errorf("Algorithm mismatch: token has %s, config expects %s", alg, config.AccessTokenSigningMethod)
+			return nil, fmt.Errorf("algorithm mismatch: token has %s, config expects %s", alg, config.AccessTokenSigningMethod)
 		}
 		switch {
 		case strings.HasPrefix(alg, "RS"):
 			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-				return nil, fmt.Errorf("Unexpected signing method: %s", alg)
+				return nil, fmt.Errorf("unexpected signing method: %s", alg)
 			}
 		case strings.HasPrefix(alg, "ES"):
 			if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
-				return nil, fmt.Errorf("Unexpected signing method: %s", alg)
+				return nil, fmt.Errorf("unexpected signing method: %s", alg)
 			}
 		case strings.HasPrefix(alg, "EdDSA"):
 			if _, ok := token.Method.(*jwt.SigningMethodEd25519); !ok {
-				return nil, fmt.Errorf("Unexpected signing method: %s", alg)
+				return nil, fmt.Errorf("unexpected signing method: %s", alg)
 			}
 		default:
-			return nil, fmt.Errorf("Unsupported signing method: %s", alg)
+			return nil, fmt.Errorf("unsupported signing method: %s", alg)
 		}
 		// Delegate to JWKS keyfunc to return the correct public key
 		return jwksKeyfunc(token)
