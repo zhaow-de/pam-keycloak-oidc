@@ -47,7 +47,7 @@ go test -v -run TestNewTokenRequest_NoDoubleEncoding
 ## Static analysis
 
 ```shell
-# Vet — reports suspicious constructs
+# Vet - reports suspicious constructs
 go vet ./...
 
 # Optional: staticcheck (install: go install honnef.co/go/tools/cmd/staticcheck@latest)
@@ -62,7 +62,7 @@ Configuration is in `goreleaser.yaml`.
 ```shell
 # Local snapshot build (no publishing, no git tag required)
 make snapshot
-# — or equivalently —
+# - or equivalently —
 goreleaser release --snapshot --clean
 ```
 
@@ -80,9 +80,10 @@ dist/
 ```
 
 The tar.gz archives include:
-- `pam-keycloak-oidc` — the binary
-- `packaging/pam-keycloak-oidc.tml.example` — reference config template
-- `packaging/check-keycloak-health.sh` — health check script for PAM fast-fail
+- `pam-keycloak-oidc` - the binary
+- `packaging/pam-keycloak-oidc.tml.example` - reference config template
+- `packaging/check-keycloak-health.sh` - health check script for PAM fast-fail
+- `packaging/test_token.sh` - test script
 
 The RPM/DEB packages additionally run a post-install script (`packaging/postinstall.sh`) that configures SELinux context.
 
@@ -109,9 +110,9 @@ hugo --minify
 
 Version is tracked in three places (kept in sync by `.bumpsemver.cfg`):
 
-- `Makefile` — `VERSION=x.y.z`
-- `README.md` — `Current version: **x.y.z**`
-- `doc/content/_index.md` — `Current version: **x.y.z**`
+- `Makefile` - `VERSION=x.y.z`
+- `README.md` - `Current version: **x.y.z**`
+- `doc/content/_index.md` - `Current version: **x.y.z**`
 
 To bump:
 

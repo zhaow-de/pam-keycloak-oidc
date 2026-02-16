@@ -69,7 +69,7 @@ sudo dpkg -i pam-keycloak-oidc_1.5.2_amd64.deb
 
 ### tar.gz (manual)
 
-The tar.gz archive contains the binary, a reference config template, and a health check script.
+The tar.gz archive contains the binary, a reference config template, a health check script, and a test script.
 
 **Latest version:**
 
@@ -87,10 +87,12 @@ sudo mkdir -p /opt/pam-keycloak-oidc
 sudo mv pam-keycloak-oidc /opt/pam-keycloak-oidc/
 sudo mv packaging/pam-keycloak-oidc.tml.example /opt/pam-keycloak-oidc/pam-keycloak-oidc.tml
 sudo mv packaging/check-keycloak-health.sh /opt/pam-keycloak-oidc/
+sudo mv packaging/test_token.sh /opt/pam-keycloak-oidc/
 
 sudo chmod 755 /opt/pam-keycloak-oidc/pam-keycloak-oidc
 sudo chmod 755 /opt/pam-keycloak-oidc/check-keycloak-health.sh
 sudo chmod 600 /opt/pam-keycloak-oidc/pam-keycloak-oidc.tml
+sudo chmod 755 /opt/pam-keycloak-oidc/test_token.sh
 ```
 
 > Replace `amd64` with `arm64` for ARM systems.
@@ -104,9 +106,10 @@ sudo chmod 600 /opt/pam-keycloak-oidc/pam-keycloak-oidc.tml
 | File                                                   | Purpose                                   |
 | ------------------------------------------------------ | ----------------------------------------- |
 | `/opt/pam-keycloak-oidc/pam-keycloak-oidc`             | PAM binary                                |
-| `/opt/pam-keycloak-oidc/pam-keycloak-oidc.tml`         | Config (edit this — preserved on upgrade) |
+| `/opt/pam-keycloak-oidc/pam-keycloak-oidc.tml`         | Config (edit this - preserved on upgrade) |
 | `/opt/pam-keycloak-oidc/pam-keycloak-oidc.tml.example` | Reference config template                 |
 | `/opt/pam-keycloak-oidc/check-keycloak-health.sh`      | Health check script for PAM fast-fail     |
+| `/opt/pam-keycloak-oidc/test_token.sh`                 | Test script for quick role validation     |
 
 ## Configuration
 
@@ -150,11 +153,11 @@ substitution. Always use **single quotes** when setting secrets in shell, or wri
 config file where no shell interpretation occurs:
 
 ```shell
-# WRONG — bash expands !! and $
+# WRONG - bash expands !! and $
 export SECRET="abc!!def$ghi"
-# RIGHT — use single quotes in shell
+# RIGHT - use single quotes in shell
 export SECRET='abc!!def$ghi'
-# RIGHT — in the .tml config file, TOML handles double quotes correctly
+# RIGHT - in the .tml config file, TOML handles double quotes correctly
 # client-secret="abc!!def$ghi"
 ```
 {{% /hint %}}

@@ -130,28 +130,36 @@ Create `/opt/pam-keycloak-oidc/pam-keycloak-oidc.tml`:
 # name of the dedicated OIDC client at Keycloak
 client-id="demo-pam"
 # the secret of the dedicated client
-client-secret="YOUR_CLIENT_SECRET"
+client-secret="561319ba-700b-400a-8000-5ab5cd4ef3ab"
 # special callback address for no callback scenario
 redirect-url="urn:ietf:wg:oauth:2.0:oob"
 # OAuth2 scope to be requested, which contains the role information of a user
+# this value is also used as the JWT claim key for role lookup
 scope="pam_roles"
-# name of the role to be matched
+# name of the role to be matched, only Keycloak users who is assigned with this role could be accepted
 vpn-user-role="demo-pam-authentication"
-# endpoints from the OIDC discovery document
-endpoint-auth-url="https://keycloak.example.com/realms/YOUR_REALM/protocol/openid-connect/auth"
-endpoint-token-url="https://keycloak.example.com/realms/YOUR_REALM/protocol/openid-connect/token"
-# JWKS endpoint for JWT signature verification
-jwks-url="https://keycloak.example.com/realms/YOUR_REALM/protocol/openid-connect/certs"
-# issuer URL for token issuer validation (must match "iss" claim)
-issuer-url="https://keycloak.example.com/realms/YOUR_REALM"
-# pass username as-is
+# retrieve from the meta-data at https://keycloak.example.com/realms/demo-pam/.well-known/openid-configuration
+endpoint-auth-url="https://keycloak.example.com/realms/demo-pam/protocol/openid-connect/auth"
+endpoint-token-url="https://keycloak.example.com/realms/demo-pam/protocol/openid-connect/token"
+# JWKS endpoint for JWT signature verification (required)
+jwks-url="https://keycloak.example.com/realms/demo-pam/protocol/openid-connect/certs"
+# issuer URL for token issuer validation (required, must match "iss" claim in token)
+issuer-url="https://keycloak.example.com/realms/demo-pam"
+# 1:1 copy, no `fmt` substitution is required
 username-format="%s"
-# must match the client's Access Token Signature Algorithm
+# to be the same as the particular Keycloak client
 access-token-signing-method="RS256"
-# a key for XOR masking, treat it as a top secret
-xor-key="your-secret-xor-key"
-# use only otp code for auth (default: false)
+# a key for XOR masking. treat it as a top secret
+xor-key="scmi"
+# use only otp code for auth
 otp-only=false
+# require OTP suffix in password (reject if missing). Default: false
+otp-require=false
+# number of OTP characters to extract from password suffix. Default: "6"
+otp-length="6"
+# regex character class for OTP characters. Default: "\d" (digits only)
+# examples: "\d" for numeric, "[a-zA-Z0-9]" for alphanumeric
+otp-class="\d"
 ```
 
 > **Note:** In Keycloak 17+ (Quarkus distribution), the `/auth/` prefix is no longer part of the

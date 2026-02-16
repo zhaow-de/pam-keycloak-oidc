@@ -55,6 +55,7 @@ fi
 echo $TOKEN | cut -d. -f2 | tr '_-' '/+' | \
   awk '{while(length%4)$0=$0"=";print}' | base64 -d | jq '{ssh_roles, realm_access}'
 
+# echo "$TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq .
 
 export PAM_USER=$KC_USER
 

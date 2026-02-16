@@ -35,7 +35,7 @@ You can customize this behavior with three configuration fields:
 Examples:
 - **8-digit numeric OTP** (hardware tokens): `otp-length="8"`, `otp-class="\d"`
 - **6-character alphanumeric OTP**: `otp-length="6"`, `otp-class="[a-zA-Z0-9]"`
-- **Mandatory OTP**: `otp-require=true` — rejects login attempts without a valid OTP suffix
+- **Mandatory OTP**: `otp-require=true` - rejects login attempts without a valid OTP suffix
 
 The OTP extraction pattern is built as: `^(.+)(<otp-class>{<otp-length>})$`
 
@@ -48,7 +48,7 @@ This PAM module works with any display manager that supports PAM authentication,
 - **LightDM**
 
 Configure the PAM service for your display manager (e.g., `/etc/pam.d/gdm-password`, `/etc/pam.d/sddm`, `/etc/pam.d/lightdm`)
-the same way you would for SSH or RADIUS — the module reads `PAM_USER` and password from stdin regardless of the frontend.
+the same way you would for SSH or RADIUS - the module reads `PAM_USER` and password from stdin regardless of the frontend.
 
 
 ## MFA/TOTP handling
