@@ -141,16 +141,17 @@ sudo chmod 755 /opt/pam-keycloak-oidc/test_token.sh
    You should see message like: "...(test1) Authentication succeeded"
 
 3. Configure PAM. Create PAM config file, e.g. `/etc/pam.d/radiusd`
-   ```
-   account	required			pam_permit.so
-   auth	[success=1 default=ignore]	pam_exec.so	expose_authtok	log=/var/log/pam-keycloak-oidc.log	/opt/pam-keycloak-oidc/pam-keycloak-oidc
-   auth	requisite			pam_deny.so
-   auth	required			pam_permit.so
-   ```
 
-   {{% hint info %}}
-   This PAM config uses the standard `[success=1]` skip pattern suitable for simple services like RADIUS. For **SSH** with a health check and `pam_setcred` compatibility, see the PAM configuration in [KC_CONFIG.md](https://github.com/revalew/pam-keycloak-oidc/blob/main/KC_CONFIG.md) which uses a different approach (do **not** use `pam_deny.so` for SSH — it breaks `pam_setcred`).
-   {{% /hint %}}
+    ```
+    account	required			pam_permit.so
+    auth	[success=1 default=ignore]	pam_exec.so	expose_authtok	log=/var/log/pam-keycloak-oidc.log	/opt/pam-keycloak-oidc/pam-keycloak-oidc
+    auth	requisite			pam_deny.so
+    auth	required			pam_permit.so
+    ```
+
+{{% hint info %}}
+This PAM config uses the standard `[success=1]` skip pattern suitable for simple services like RADIUS. For **SSH** with a health check and `pam_setcred` compatibility, see the PAM configuration in [KC_CONFIG.md](https://github.com/revalew/pam-keycloak-oidc/blob/main/KC_CONFIG.md) which uses a different approach (do **not** use `pam_deny.so` for SSH — it breaks `pam_setcred`).
+{{% /hint %}}
 
 {{% /steps %}}
 
