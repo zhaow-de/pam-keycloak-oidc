@@ -9,10 +9,11 @@ env:
 
 before:
   hooks:
-    - cd src && go mod tidy
+    - sh -c "cd src && go mod tidy"
 
 builds:
-  - main: ./src
+  - dir: src
+    main: .
     binary: pam-keycloak-oidc
     env:
       - CGO_ENABLED=0
