@@ -8,7 +8,7 @@ _Forked from [zhaow-de/pam-keycloak-oidc](https://github.com/zhaow-de/pam-keyclo
 
 # pam-keycloak-oidc
 
-Current version: **1.5.2**
+Current version: **1.5.3**
 
 ## Overview
 
