@@ -8,7 +8,7 @@ _Forked from [zhaow-de/pam-keycloak-oidc](https://github.com/zhaow-de/pam-keyclo
 
 # pam-keycloak-oidc
 
-Current version: **1.5.0**
+Current version: **1.5.2**
 
 ## Overview
 
@@ -20,6 +20,35 @@ In theory, it should work with any identity provider which supports OpenID Conne
 
 For a comprehensive end-to-end deployment guide including Keycloak configuration, LDAP/AD federation, PAM setup,
 and YubiKey PIV fallback, see [KC_CONFIG.md](https://github.com/revalew/pam-keycloak-oidc/blob/main/KC_CONFIG.md).
+
+## Configurable OTP
+
+By default, the module expects a 6-digit numeric OTP code appended to the password (regex: `\d{6}`).
+You can customize this behavior with three configuration fields:
+
+| Field | Default | Description |
+|---|---|---|
+| `otp-length` | `6` | Number of characters in the OTP code |
+| `otp-class` | `\d` | Regex character class for OTP characters |
+| `otp-require` | `false` | When `true`, reject authentication if input does not contain a valid OTP suffix |
+
+Examples:
+- **8-digit numeric OTP** (hardware tokens): `otp-length="8"`, `otp-class="\d"`
+- **6-character alphanumeric OTP**: `otp-length="6"`, `otp-class="[a-zA-Z0-9]"`
+- **Mandatory OTP**: `otp-require=true` — rejects login attempts without a valid OTP suffix
+
+The OTP extraction pattern is built as: `^(.+)(<otp-class>{<otp-length>})$`
+
+## Display Manager Compatibility
+
+This PAM module works with any display manager that supports PAM authentication, including:
+
+- **GDM** (GNOME Display Manager)
+- **SDDM / KDE** (Simple Desktop Display Manager)
+- **LightDM**
+
+Configure the PAM service for your display manager (e.g., `/etc/pam.d/gdm-password`, `/etc/pam.d/sddm`, `/etc/pam.d/lightdm`)
+the same way you would for SSH or RADIUS — the module reads `PAM_USER` and password from stdin regardless of the frontend.
 
 
 ## MFA/TOTP handling

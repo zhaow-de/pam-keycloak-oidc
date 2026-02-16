@@ -7,7 +7,7 @@ K := $(foreach exec,$(EXECUTABLES),\
 ROOT_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 BINARY=pam-keycloak-oidc
-VERSION=1.5.1
+VERSION=1.5.2
 BUILD=$(shell git rev-parse HEAD)
 PLATFORMS=darwin linux windows
 ARCHITECTURES=amd64 arm64

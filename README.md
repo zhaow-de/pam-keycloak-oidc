@@ -1,6 +1,6 @@
 # pam-keycloak-oidc
 
-Current version: **1.5.1**
+Current version: **1.5.2**
 
 A PAM module connecting to [Keycloak](https://www.keycloak.org/) for user authentication using OpenID Connect protocol,
 MFA (Multi-Factor Authentication) or precisely, TOTP (Time-based One-time Password), is supported.
@@ -10,9 +10,12 @@ This is a fork of [zhaow-de/pam-keycloak-oidc](https://github.com/zhaow-de/pam-k
 - JWKS-based JWT signature verification (using [keyfunc/v3](https://github.com/MicahParks/keyfunc))
 - Token issuer and audience validation
 - Token expiration enforcement
+- Configurable OTP length and character class (`otp-require`, `otp-length`, `otp-class`)
+- Fix for special characters in client secret causing auth failures ([upstream #10](https://github.com/zhaow-de/pam-keycloak-oidc/issues/10))
+- Code refactored into modules (`config.go`, `utils.go`, `jwks.go`, `oauth2ex.go`)
 - `--version` and `--help` CLI flags
 - RPM and DEB packages with SELinux post-install configuration
-- Updated documentation for Keycloak 26.x
+- Updated documentation for Keycloak 26.x, display manager compatibility (GDM, SDDM/KDE, LightDM)
 - Comprehensive deployment guide ([KC_CONFIG.md](KC_CONFIG.md))
 
 Visit https://revalew.github.io/pam-keycloak-oidc/ for detailed documentation.
@@ -32,9 +35,9 @@ sudo rpm -i pam-keycloak-oidc_amd64.rpm
 **Specific version:**
 
 ```bash
-wget https://github.com/revalew/pam-keycloak-oidc/releases/download/v1.5.1/pam-keycloak-oidc_1.5.1_amd64.rpm
+wget https://github.com/revalew/pam-keycloak-oidc/releases/download/v1.5.2/pam-keycloak-oidc_1.5.2_amd64.rpm
 
-sudo rpm -i pam-keycloak-oidc_1.5.1_amd64.rpm
+sudo rpm -i pam-keycloak-oidc_1.5.2_amd64.rpm
 ```
 
 **Upgrade (preserves your `.tml` config):**
@@ -88,5 +91,5 @@ See [KC_CONFIG.md](KC_CONFIG.md) for a complete deployment guide.
 ## Credits
 
 - Original project by [zhaow-de](https://github.com/zhaow-de/pam-keycloak-oidc)
-- Thanks @MattiL for the [alternative signing method](https://github.com/MattiL/pam-keycloak-oidc/tree/ecc) support
+- Thanks [MattiL](https://github.com/MattiL/pam-keycloak-oidc) for the [alternative signing method](https://github.com/MattiL/pam-keycloak-oidc/commit/e1815d9f0d2db0e38a49feff66cb99992f9af8c3) support and [OTP configurability](https://github.com/MattiL/pam-keycloak-oidc/commit/7ec9520711cb88e175731c40d870bfea7de20a7f) inspiration
 - Thanks @willstott101 for adding [arm64 support](https://github.com/willstott101/pam-keycloak-oidc/commit/554076f40a597ab0ec24a1578e624b55d2686111) in the build pipeline

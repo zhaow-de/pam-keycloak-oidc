@@ -38,6 +38,13 @@ access-token-signing-method="RS256"
 xor-key="scmi"
 # use only otp code for auth
 otp-only=false
+# require OTP suffix in password (reject if missing). Default: false
+otp-require=false
+# number of OTP characters to extract from password suffix. Default: "6"
+otp-length="6"
+# regex character class for OTP characters. Default: "\d" (digits only)
+# examples: "\d" for numeric, "[a-zA-Z0-9]" for alphanumeric
+otp-class="\d"
 ```
 
 ## Field reference
@@ -55,8 +62,11 @@ otp-only=false
 | `issuer-url` | Yes | Expected token issuer (must match the `iss` claim) |
 | `username-format` | Yes | Format string for the username (`%s` for pass-through) |
 | `access-token-signing-method` | No | Expected JWT signing algorithm (e.g., `RS256`, `ES256`, `EdDSA`) |
-| `xor-key` | Yes | XOR key for encoding/decoding the hardcoded username |
+| `xor-key` | No | XOR key for encoding/decoding the hardcoded username (default: `"scmi"`) |
 | `otp-only` | No | Set to `true` to accept OTP code without password (default: `false`) |
+| `otp-require` | No | Set to `true` to reject authentication if no valid OTP suffix is found (default: `false`) |
+| `otp-length` | No | Number of OTP characters to extract from password suffix (default: `6`) |
+| `otp-class` | No | Regex character class for OTP characters (default: `\d`). Use `[a-zA-Z0-9]` for alphanumeric |
 | `extra-parameters` | No | Additional key-value pairs to include in the token request |
 
 > **Note:** The `jwks-url` and `issuer-url` fields are required in this fork. They enable cryptographic
