@@ -41,9 +41,23 @@ username-format              = "%s"
 # Must match the signing algorithm configured in Keycloak client
 access-token-signing-method  = "RS256"
 
-# XOR key for encoded username feature — REQUIRED even if not used.
-# Without this, binary panics with "integer divide by zero".
-xor-key = "CHANGE_ME"
+# XOR key for encoded username feature.
+# Only needed if using the "hardcoded username" mode (XOR + ASCII85 encoding).
+# Default: "scmi" (upstream default, applied if omitted).
+xor-key = "scmi"
 
 # Use only OTP code for auth (no password). Default: false
 otp-only = false
+
+# -- OTP configuration --
+# Require OTP suffix in password input. When true, authentication is rejected
+# if the input does not end with a valid OTP code. Default: false
+otp-require = false
+
+# Number of OTP characters to extract from the end of the password.
+# Default: "6" (standard TOTP). Set to "8" for hardware tokens.
+otp-length = "6"
+
+# Regex character class for OTP characters.
+# Default: "\d" (digits only). Use "[a-zA-Z0-9]" for alphanumeric OTP.
+otp-class = "\d"
