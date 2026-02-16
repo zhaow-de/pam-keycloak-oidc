@@ -24,6 +24,32 @@ title: 'Development environment'
 └── .goreleaser.yaml         # Release configuration
 ```
 
+## Line endings (CRLF / LF)
+
+The repository enforces **LF** line endings via `.gitattributes` to prevent issues when
+developing on Windows and deploying to Linux (e.g., shell scripts with `\r\n` break on the server).
+
+Git handles the conversion automatically on checkout and commit, so normally you don't need
+to do anything. If you see CRLF warnings or existing files have wrong endings after adding
+`.gitattributes` to an existing clone, run:
+
+```shell
+# Re-normalize all tracked files to match .gitattributes
+git config core.autocrlf input
+git add --renormalize .
+git commit -m "Normalize line endings"
+
+# Verify - the "i/" column should show "lf" for text files
+git ls-files --eol
+```
+
+If `--renormalize` does not help (rare), convert manually with `dos2unix`:
+
+```shell
+# Install: sudo dnf install dos2unix  (or apt install dos2unix)
+dos2unix $(git ls-files --eol | grep 'i/crlf' | awk '{print $4}')
+```
+
 ## Building
 
 ```shell
@@ -73,6 +99,47 @@ go vet ./...
 # Optional: staticcheck (install: go install honnef.co/go/tools/cmd/staticcheck@latest)
 staticcheck ./...
 ```
+
+## Pre-commit hook (optional, local only)
+
+A simple Git pre-commit hook that runs `gofmt` and `go vet` before each commit.
+This is **local to your machine** and does not affect other contributors.
+
+Create `.git/hooks/pre-commit`:
+
+```shell
+#!/bin/sh
+# Pre-commit hook: format check + vet
+cd src || exit 1
+
+UNFORMATTED=$(gofmt -l .)
+if [ -n "$UNFORMATTED" ]; then
+    echo "gofmt: the following files need formatting:"
+    echo "$UNFORMATTED"
+    #echo "Run: cd src && gofmt -w ."
+    #exit 1
+fi
+
+echo "Running: \"gofmt -w .\" on:"
+echo "$UNFORMATTED"
+echo ""
+
+gofmt -w . || exit 1
+
+go vet ./... || exit 1
+```
+
+Then make it executable:
+
+```shell
+chmod +x .git/hooks/pre-commit
+```
+
+{{% hint info %}}
+This hook lives in `.git/hooks/` which is **not tracked by Git**. Each developer
+must set it up manually after cloning. The CI pipeline runs `golangci-lint` on
+every tagged build regardless, so the hook is a convenience, not a requirement.
+{{% /hint %}}
 
 ## Packaging (RPM + DEB)
 
