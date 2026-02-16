@@ -53,10 +53,10 @@ the same way you would for SSH or RADIUS - the module reads `PAM_USER` and passw
 
 ## MFA/TOTP handling
 
-At Github, there are already many repos implemented PAM<->OAuth2/OIDC.
+On GitHub, there are already many repos implemented PAM<->OAuth2/OIDC.
 
 PAM supports only username and password, while it does not provide the third place for the one-time code. However,
-for online authentication and authorization, MFA is fastly becoming the standard which is enforced for many scenarios.
+for online authentication and authorization, MFA is quickly becoming the standard which is enforced for many scenarios.
 We have to "embed" the OTP code either into the username or the password. This application supports both.
 
 ### Simple case

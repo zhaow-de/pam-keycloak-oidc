@@ -7,8 +7,8 @@ MFA (Multi-Factor Authentication) or precisely, TOTP (Time-based One-time Passwo
 
 Visit [GitHub Pages](https://revalew.github.io/pam-keycloak-oidc/) for detailed documentation.
 
-</br>
-</br>
+<br/>
+<br/>
 
 This is a fork of [zhaow-de/pam-keycloak-oidc](https://github.com/zhaow-de/pam-keycloak-oidc) with the following additions:
 
@@ -32,8 +32,8 @@ This is a fork of [zhaow-de/pam-keycloak-oidc](https://github.com/zhaow-de/pam-k
 
 - Comprehensive deployment guide ([`KC_CONFIG.md`](KC_CONFIG.md))
 
-</br>
-</br>
+<br/>
+<br/>
 
 ## Installation
 
@@ -41,7 +41,7 @@ This is a fork of [zhaow-de/pam-keycloak-oidc](https://github.com/zhaow-de/pam-k
 
 Available [here](https://revalew.github.io/pam-keycloak-oidc/install)
 
-</br>
+<br/>
 
 ### RPM (RHEL / Oracle Linux / Rocky / Alma)
 
@@ -65,8 +65,8 @@ sudo rpm -U pam-keycloak-oidc_amd64.rpm
 >
 > `arm64` packages are also available - replace `amd64` with `arm64` in the URL above.
 
-</br>
-</br>
+<br/>
+<br/>
 
 ### What the package installs
 
@@ -89,8 +89,8 @@ rpm -ql pam-keycloak-oidc
 After installation, edit the `.tml` config and health check script, then configure PAM and SSHD.
 See [`KC_CONFIG.md`](KC_CONFIG.md) for a complete deployment guide with Keycloak, AD and Yubikey.
 
-</br>
-</br>
+<br/>
+<br/>
 
 ## Credits
 

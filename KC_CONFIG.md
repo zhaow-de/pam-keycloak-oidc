@@ -103,9 +103,9 @@ Inside `ssh_roles` -> **Mappers -> Configure a new mapper -> User Realm Role:**
 | Multivalued | On |
 | Token Claim Name | `ssh_roles` <- must match scope name exactly |
 | Claim JSON Type | String |
-| Add to ID token | On |
+| Add to ID token | Off |
 | Add to access token | On |
-| Add to userinfo | On |
+| Add to userinfo | Off |
 
 **Clients -> ssh-client -> Client scopes -> Add client scope -> select `ssh_roles` -> Add (Default)**
 
@@ -223,9 +223,11 @@ Always import the Root CA, not the leaf certificate of the domain controller.
 **Recommended user filter** (excludes computer accounts, disabled accounts, system accounts):
 
 ```
-(&(objectCategory=person)(objectClass=user)
-  (!(userAccountControl:1.2.840.113556.1.4.803:=2)))
+(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))
 ```
+
+> [!NOTE]
+> The filter above is shown on a single line. If you format it across multiple lines for readability, make sure to remove all line breaks and extra whitespace before pasting into Keycloak's Custom User LDAP Filter field.
 
 ### 2.3. Map AD Groups to Keycloak Roles
 
@@ -518,6 +520,10 @@ EOF
 **Why `pam_permit.so`?** - When both `pam_exec` modules return `PAM_IGNORE` during `setcred`, no module handles that phase. PAM requires at least one success - `pam_permit.so` provides it.
 
 ### 3.10. Configure PAM for sudo
+
+```bash
+cp /etc/pam.d/sudo /etc/pam.d/sudo.bak
+```
 
 Add to the beginning of `/etc/pam.d/sudo` (before other `auth` lines):
 

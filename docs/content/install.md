@@ -148,6 +148,10 @@ sudo chmod 755 /opt/pam-keycloak-oidc/test_token.sh
    auth	required			pam_permit.so
    ```
 
+   {{% hint info %}}
+   This PAM config uses the standard `[success=1]` skip pattern suitable for simple services like RADIUS. For **SSH** with a health check and `pam_setcred` compatibility, see the PAM configuration in [KC_CONFIG.md](https://github.com/revalew/pam-keycloak-oidc/blob/main/KC_CONFIG.md) which uses a different approach (do **not** use `pam_deny.so` for SSH — it breaks `pam_setcred`).
+   {{% /hint %}}
+
 {{% /steps %}}
 
 {{% hint warning %}}
