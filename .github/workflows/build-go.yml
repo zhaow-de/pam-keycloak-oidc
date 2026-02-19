@@ -1,108 +1,127 @@
-name: Build and publish
+name: Build and release
+
 on:
   push:
     tags:
-      - 'r*'
+      - "v*"
+      - "r*"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  build_and_publish:
-    name: Build and publish the application
+  test:
+    name: Run tests
     runs-on: ubuntu-24.04
     steps:
-      -
-        name: Check out the repo
+      - name: Check out the repo
         uses: actions/checkout@v4
-      -
-        name: Setup golang version
+
+      - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '^1.23'
-      -
-        name: Verify golang version
-        run: go version
-      -
-        name: Cache go modules
-        uses: actions/cache@v4
+          go-version: "^1.24"
+          cache: true
+
+
+      - name: Run tests
+        run: go test ./...
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-      -
-        name: Install dependencies
-        run: go mod download
-      -
-        name: Build
+          go-version: "^1.24"
+          cache: true
+
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: latest
+
+  # --- GoReleaser: builds RPM, DEB, tar.gz and creates GitHub Release ---
+  release-packages:
+    name: "Release packages (RPM + DEB)"
+    needs: [test, lint]
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "^1.24"
+          cache: true
+
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload fixed-name packages (latest-friendly)
+        run: |
+          # Copy versioned RPM/DEB to fixed names for stable download URLs
+          for f in dist/*.rpm; do
+            arch=$(echo "$f" | grep -oP '(amd64|arm64)')
+            cp "$f" "dist/pam-keycloak-oidc_${arch}.rpm"
+          done
+          for f in dist/*.deb; do
+            arch=$(echo "$f" | grep -oP '(amd64|arm64)')
+            cp "$f" "dist/pam-keycloak-oidc_${arch}.deb"
+          done
+          # Upload fixed-name copies to the same release
+          gh release upload "${{ github.ref_name }}" \
+            dist/pam-keycloak-oidc_amd64.rpm \
+            dist/pam-keycloak-oidc_arm64.rpm \
+            dist/pam-keycloak-oidc_amd64.deb \
+            dist/pam-keycloak-oidc_arm64.deb \
+            --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # --- Legacy: raw binaries only (no packaging) ---
+  release-binaries:
+    name: "Release binaries (legacy)"
+    needs: [test, lint]
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/r')
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "^1.24"
+          cache: true
+
+      - name: Build
         run: make all
-      -
-        name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release and upload assets
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
-      -
-        name: Upload Release Asset (Linux amd64)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./pam-keycloak-oidc.linux-amd64
-          asset_name: pam-keycloak-oidc.linux-amd64
-          asset_content_type: application/octet-stream
-      -
-        name: Upload Release Asset (Linux arm64)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./pam-keycloak-oidc.linux-arm64
-          asset_name: pam-keycloak-oidc.linux-arm64
-          asset_content_type: application/octet-stream
-      -
-        name: Upload Release Asset (macOS amd64)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./pam-keycloak-oidc.darwin-amd64
-          asset_name: pam-keycloak-oidc.macOS-intel
-          asset_content_type: application/octet-stream
-      -
-        name: Upload Release Asset (macOS arm64)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./pam-keycloak-oidc.darwin-arm64
-          asset_name: pam-keycloak-oidc.macOS-arm64
-          asset_content_type: application/octet-stream
-      -
-        name: Upload Release Asset (Windows amd64)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./pam-keycloak-oidc.windows-amd64.exe
-          asset_name: pam-keycloak-oidc-amd64.exe
-          asset_content_type: application/octet-stream
-      -
-        name: Upload Release Asset (Windows arm64)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./pam-keycloak-oidc.windows-arm64.exe
-          asset_name: pam-keycloak-oidc-arm64.exe
-          asset_content_type: application/octet-stream
+          generate_release_notes: true
+          files: |
+            ./pam-keycloak-oidc.linux-amd64
+            ./pam-keycloak-oidc.linux-arm64
+            ./pam-keycloak-oidc.darwin-amd64
+            ./pam-keycloak-oidc.darwin-arm64
+            ./pam-keycloak-oidc.windows-amd64.exe
+            ./pam-keycloak-oidc.windows-arm64.exe

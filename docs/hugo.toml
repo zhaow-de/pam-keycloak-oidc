@@ -1,4 +1,4 @@
-baseURL = 'https://zhaow-de.github.io/pam-keycloak-oidc/'
+baseURL = 'https://revalew.github.io/pam-keycloak-oidc/'
 languageCode = 'en-us'
 title = 'pam-keycloak-oidc'
 theme = "hugo-book"

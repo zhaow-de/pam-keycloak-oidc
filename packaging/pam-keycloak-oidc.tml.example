@@ -1,0 +1,72 @@
+# pam-keycloak-oidc configuration
+# Docs: https://github.com/revalew/pam-keycloak-oidc
+#
+# This file MUST be located at <binary-path>.tml
+# Default: /opt/pam-keycloak-oidc/pam-keycloak-oidc.tml
+#
+# IMPORTANT: This file contains secrets — keep permissions at 0600
+#   chmod 0600 /opt/pam-keycloak-oidc/pam-keycloak-oidc.tml
+
+# -- Keycloak connection --
+# Name of the dedicated OIDC client in Keycloak
+client-id        = "ssh-client"
+# Client secret (Keycloak -> Clients -> ssh-client -> Credentials)
+client-secret    = "CHANGE_ME"
+# Special callback address for no-callback (CLI) scenario
+redirect-url     = "urn:ietf:wg:oauth:2.0:oob"
+
+# OAuth2 scope — CRITICAL: this value is also used as the JWT claim key.
+# Code does: claims[config.Scope] — MUST match Token Claim Name in the
+# Keycloak mapper. Do NOT put "openid" here.
+scope = "ssh_roles"
+
+# -- SERVER LABEL: required role(s) for this machine --
+# Only Keycloak users assigned this role will be granted access.
+# Change per server group: dev-ssh, qa-ssh, oracle-ssh, admin-ssh, etc.
+# Accepts a single string or an array of strings:
+#   vpn-user-role = "dev-ssh"                     # single role
+#   vpn-user-role = ["dev-ssh", "admin-ssh"]      # multiple roles
+vpn-user-role    = "CHANGE_ME"
+
+# Role matching mode when multiple roles are specified.
+# "any" (default) = user needs at least ONE of the listed roles (OR)
+# "all"           = user needs ALL of the listed roles (AND)
+# role-match = "any"
+
+# -- Endpoints (adjust realm name) --
+endpoint-auth-url  = "https://keycloak.example.com/realms/REALM/protocol/openid-connect/auth"
+endpoint-token-url = "https://keycloak.example.com/realms/REALM/protocol/openid-connect/token"
+
+# JWKS endpoint for JWT signature verification
+jwks-url = "https://keycloak.example.com/realms/REALM/protocol/openid-connect/certs"
+
+# Issuer URL — must match the "iss" claim in Keycloak tokens
+issuer-url = "https://keycloak.example.com/realms/REALM"
+
+# -- Token validation --
+# 1:1 copy, no substitution required
+username-format              = "%s"
+# Must match the signing algorithm configured in Keycloak client
+access-token-signing-method  = "RS256"
+
+# XOR key for encoded username feature.
+# Only needed if using the "hardcoded username" mode (XOR + ASCII85 encoding).
+# Default: "scmi" (upstream default, applied if omitted).
+xor-key = "scmi"
+
+# Use only OTP code for auth (no password). Default: false
+otp-only = false
+
+# -- OTP configuration --
+# Require OTP suffix in password input. When true, authentication is rejected
+# if the input does not end with a valid OTP code. Default: false
+otp-require = false
+
+# Number of OTP characters to extract from the end of the password.
+# Default: "6" (standard TOTP). Set to "8" for hardware tokens.
+otp-length = "6"
+
+# Regex character class for OTP characters.
+# Default: '\d' (digits only). Use '[a-zA-Z0-9]' for alphanumeric OTP.
+# NOTE: use single quotes (TOML literal strings) for values with backslash.
+otp-class = '\d'

@@ -1,24 +1,23 @@
+// PAM return codes used in this module:
+//
+//	0  = PAM_SUCCESS           - authentication and authorization succeeded
+//	2  = PAM_SERVICE_ERR       - auth provider returned an error
+//	4  = PAM_SYSTEM_ERR        - configuration or system error
+//	7  = PAM_PERM_DENIED       - authenticated but not authorized (missing role)
+//	11 = PAM_CRED_INSUFFICIENT - missing username or password
 package main
 
 import (
 	"bufio"
 	"context"
-	"crypto/hmac"
-	"crypto/sha1"
-	"encoding/ascii85"
-	"encoding/base32"
 	"fmt"
 	"log"
-	"math"
 	"net/url"
 	"os"
-	"path/filepath"
-	"reflect"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/BurntSushi/toml"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
@@ -30,138 +29,51 @@ const digits int = 6
 // interval in seconds between two OTP tokens. Google Authenticator expects this to be 30 seconds
 const interval int64 = 30
 
-type Config struct {
-	ClientId                 string            `toml:"client-id"`
-	ClientSecret             string            `toml:"client-secret"`
-	RedirectUri              string            `toml:"redirect-url"`
-	Scope                    string            `toml:"scope"`
-	AuthEndpoint             string            `toml:"endpoint-auth-url"`
-	TokenEndpoint            string            `toml:"endpoint-token-url"`
-	UsernameFormat           string            `toml:"username-format"`
-	MandatoryUserRole        string            `toml:"vpn-user-role"`
-	AccessTokenSigningMethod string            `toml:"access-token-signing-method"`
-	XORKey                   string            `toml:"xor-key"`
-	OTPOnly                  bool              `toml:"otp-only"`
-	ExtraParameters          map[string]string `toml:"extra-parameters"`
-}
-
-// load config file
+// loadConfig loads configuration from the default location.
+// Maintained for backward compatibility
 func loadConfig() *Config {
-	var configFile string
-	if exeName, err := os.Executable(); err != nil {
-		log.Fatal("Unable to get current executable name. Error: ", err)
-	} else {
-		configFile = filepath.Clean(exeName + ".tml")
-	}
-	if _, err := os.Stat(configFile); err != nil {
-		log.Fatal(err)
-	}
-	var config Config
-	if _, err := toml.DecodeFile(configFile, &config); err != nil {
-		log.Fatal("Unable to load config file. Error: ", err)
-	}
-	return &config
-}
-
-// encryptDecrypt runs XOR encryption on the input string, encrypting it if it hasn't already been,
-// and decrypting it if it has, using the key provided.
-func encryptDecrypt(input []byte, key string) (output []byte) {
-	kL := len(key)
-	for i := range input {
-		output = append(output, input[i]^key[i%kL])
-	}
-	return output
-}
-
-func a85Encode(input []byte) (output string) {
-	result := make([]byte, ascii85.MaxEncodedLen(len(input)))
-	n := ascii85.Encode(result, input)
-	result = result[0:n]
-	output = string(result)
-	return output
-}
-
-func a85Decode(input string) (output []byte) {
-	dBuf := make([]byte, 4*len(input))
-	if dLen, _, err := ascii85.Decode(dBuf, []byte(input), true); err == nil {
-		return dBuf[0:dLen]
-	}
-	return nil
-}
-
-func b32decode(input string) (output []byte) {
-	b32decoded, _ := base32.StdEncoding.DecodeString(strings.ToUpper(input))
-	return b32decoded
-}
-
-func b32encode(input []byte) (output string) {
-	return base32.StdEncoding.EncodeToString(input)
-}
-
-func genUsername(username, secret string, xorKey string) (output string) {
-	usernamePart := []byte(username + ":")
-	secretPart := b32decode(secret)
-	if len(secretPart) == 0 {
-		panic("\"" + secret + "\" does not look like an OTP secret")
-	}
-	return a85Encode(encryptDecrypt(append(usernamePart, secretPart...), xorKey))
-}
-
-func decodeUsername(encodedUsername string, xorKey string) (username, secret string) {
-	input := encryptDecrypt(a85Decode(encodedUsername), xorKey)
-	var decodedSecret []byte
-
-	var rxUsername = regexp.MustCompile("^[a-zA-Z0-9_.-]+$")
-
-	for r := 0; r < len(input); r++ {
-		c := input[r]
-		if c == ':' {
-			username = string(input[0:r])
-			decodedSecret = input[r+1:]
-			break
-		}
-	}
-	if username == "" || len(decodedSecret) == 0 || !rxUsername.MatchString(username) {
-		return "", ""
-	}
-	secret = b32encode(decodedSecret)
-	return username, secret
-}
-
-func calculateOtpToken(secret string, timestamp int64) string {
-	if len(secret) <= 0 || timestamp < 0 {
-		return ""
-	}
-	input := timestamp / interval
-	//
-	// add the missing padding if needed, then decode the secret
-	missingPadding := len(secret) % 8
-	if missingPadding != 0 {
-		secret = secret + strings.Repeat("=", 8-missingPadding)
-	}
-	bytes, err := base32.StdEncoding.DecodeString(secret)
+	config, err := loadConfigWithError()
 	if err != nil {
-		return ""
+		log.Print("Unable to load config file. Error: ", err)
+		os.Exit(4) // PAM_SYSTEM_ERR
 	}
-	// start hashing
-	sha1Hash := hmac.New(sha1.New, bytes)
-	byteArr := make([]byte, 8)
-	for i := 7; i >= 0; i-- {
-		byteArr[i] = byte(input & 0xff)
-		input = input >> 8
-	}
-	sha1Hash.Write(byteArr)
-	hmacHash := sha1Hash.Sum(nil)
-
-	offset := int(hmacHash[len(hmacHash)-1] & 0xf)
-	code := (((int(hmacHash[offset]) & 0x7f) << 24) | ((int(hmacHash[offset+1] & 0xff)) << 16) |
-		((int(hmacHash[offset+2] & 0xff)) << 8) | (int(hmacHash[offset+3]) & 0xff)) % int(math.Pow10(digits))
-
-	return fmt.Sprintf(fmt.Sprintf("%%0%dd", digits), code)
+	return config
 }
+
+// Build-time variables set via -ldflags
+var Version = "dev"
+var Build = "unknown"
 
 func main() {
+	// Handle CLI flags (before PAM auth flow)
+	if len(os.Args) == 2 {
+		switch os.Args[1] {
+		case "--version", "-v":
+			fmt.Printf("pam-keycloak-oidc %s (build %s)\n", Version, Build)
+			return
+		case "--help", "-h":
+			fmt.Println("pam-keycloak-oidc — PAM module for Keycloak OIDC authentication")
+			fmt.Printf("Version: %s (build %s)\n\n", Version, Build)
+			fmt.Println("Usage:")
+			fmt.Println("  pam-keycloak-oidc                        PAM authentication mode (reads PAM_USER env + password from stdin)")
+			fmt.Println("  pam-keycloak-oidc <username> <secret>    Generate encoded username from real username and TOTP secret")
+			fmt.Println("  pam-keycloak-oidc <encoded-username>     Decode and verify encoded username")
+			fmt.Println("  pam-keycloak-oidc --version              Show version")
+			fmt.Println("  pam-keycloak-oidc --help                 Show this help")
+			fmt.Printf("\nConfig file: <binary-path>.tml ('%s.tml')\n", os.Args[0])
+			return
+		}
+	}
+
 	config := loadConfig()
+
+	// Apply OTP defaults and validate configuration
+	config.ApplyDefaults()
+	if err := config.Validate(); err != nil {
+		log.Print("Configuration error: ", err)
+		os.Exit(4) // PAM_SYSTEM_ERR
+	}
+
 	//
 	// check the number of arguments to determine the scenario:
 	//   two arguments: generate the secret username
@@ -193,9 +105,16 @@ func main() {
 		otpCode = calculateOtpToken(otpSecret, time.Now().Unix())
 		password = inputStdio
 	} else {
-		// regular user detected, who should have the OTP code as the last 6 digits of the password
+		// regular user detected, who should have the OTP code as the last N characters of the password
 		username = inputEnv
-		var passwordPattern = regexp.MustCompile(`^(.+)(\d{6})$`)
+
+		// Build OTP extraction pattern from config (default: `\d{6}`)
+		passwordPattern, err := regexp.Compile(`^(.+)(` + config.OTPClass + `{` + config.OTPLength + `})$`)
+		if err != nil {
+			log.Print("Invalid OTP pattern configuration (otp-class/otp-length): ", err)
+			os.Exit(4) // PAM_SYSTEM_ERR
+		}
+
 		match := passwordPattern.FindStringSubmatch(inputStdio)
 		if match != nil {
 			password = match[1]
@@ -204,6 +123,9 @@ func main() {
 			if config.OTPOnly {
 				password = "_"
 				otpCode = inputStdio
+			} else if config.OTPRequire {
+				log.Print("OTP is required but input does not contain a valid OTP suffix")
+				os.Exit(7) // PAM_PERM_DENIED
 			} else {
 				password = inputStdio
 				otpCode = ""
@@ -244,41 +166,107 @@ func main() {
 	)
 	if err != nil {
 		log.Print(sid, strings.ReplaceAll(err.Error(), "\n", ". "))
-		os.Exit(2)
+		os.Exit(2) // PAM_SERVICE_ERR
 	}
 
-	token, _ := jwt.Parse(accessToken, func(token *jwt.Token) (interface{}, error) {
-		// important to validate the `alg` presented is what we expected, according to:
-		// https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/
-		if strings.HasPrefix(token.Header["alg"].(string), "RS") {
-		    if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			    log.Fatal(sid, "Unexpected signing method: ", token.Header["alg"])
-		    }
-		} else if strings.HasPrefix(token.Header["alg"].(string), "ES") {
-		    if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
-			    log.Fatal(sid, "Unexpected signing method: ", token.Header["alg"])
-		    }
-        } else if _, ok := token.Method.(*jwt.SigningMethodEd25519); !ok {
-			    log.Fatal(sid, "Unexpected signing method: ", token.Header["alg"])
-		}
-		return token, nil
-	})
-	if token == nil {
-		log.Fatal(sid, "Encountered invalid JWT token but golang.org/x/oauth2 was okay with it")
+	// Fetch JWKS and verify JWT signature
+	jwksKeyfunc, err := fetchJWKS(config.JwksUrl)
+	if err != nil {
+		log.Print(sid, "Failed to fetch JWKS: ", err)
+		os.Exit(4) // PAM_SYSTEM_ERR
 	}
-	// with dgrijalva/jwt-go we must not verify token.Valid because of a bug, the library requires the SSL certificate
-	// start with ----BEGIN, but it should be -----BEGIN. that's why the verification is always invalid.
-	if claims := token.Claims.(jwt.MapClaims); claims != nil {
-		if roles, ok := claims[config.Scope]; ok {
-			for _, item := range roles.([]interface{}) {
-				if reflect.ValueOf(item).Kind() == reflect.String && item == config.MandatoryUserRole {
-					log.Print(sid, "Authentication succeeded")
-					os.Exit(0)
-				}
+
+	token, err := jwt.Parse(accessToken, func(token *jwt.Token) (interface{}, error) {
+		// Validate the signing algorithm to prevent algorithm confusion attacks
+		// Reference: https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/
+		alg, _ := token.Header["alg"].(string)
+		if config.AccessTokenSigningMethod != "" && alg != config.AccessTokenSigningMethod {
+			return nil, fmt.Errorf("algorithm mismatch: token has %s, config expects %s", alg, config.AccessTokenSigningMethod)
+		}
+		switch {
+		case strings.HasPrefix(alg, "RS"):
+			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %s", alg)
 			}
+		case strings.HasPrefix(alg, "ES"):
+			if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %s", alg)
+			}
+		case strings.HasPrefix(alg, "EdDSA"):
+			if _, ok := token.Method.(*jwt.SigningMethodEd25519); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %s", alg)
+			}
+		default:
+			return nil, fmt.Errorf("unsupported signing method: %s", alg)
+		}
+		// Delegate to JWKS keyfunc to return the correct public key
+		return jwksKeyfunc(token)
+	},
+		jwt.WithIssuer(config.IssuerUrl),  // reject tokens from other realms
+		jwt.WithAudience(config.ClientId), // reject tokens issued for other clients
+		jwt.WithExpirationRequired(),      // reject tokens without "exp" claim
+	)
+
+	if err != nil {
+		log.Print(sid, "JWT verification failed: ", err)
+		os.Exit(7) // PAM_PERM_DENIED
+	}
+	if !token.Valid {
+		log.Print(sid, "JWT token is not valid")
+		os.Exit(7)
+	}
+
+	// Token signature verified -- check role claims
+	if claims, ok := token.Claims.(jwt.MapClaims); ok {
+		if checkRoleAuthorization(claims, config.Scope, config.MandatoryUserRole, config.RoleMatch) {
+			log.Print(sid, "Authentication succeeded")
+			os.Exit(0)
 		}
 	}
 
 	log.Print(sid, "Authentication was successful but authorization failed")
 	os.Exit(7) // PAM_PERM_DENIED
+}
+
+// checkRoleAuthorization checks whether the token's role claims satisfy
+// the configured role requirements.
+//   - "any" mode: at least one required role must be present (OR)
+//   - "all" mode: every required role must be present (AND)
+func checkRoleAuthorization(claims jwt.MapClaims, scope string, requiredRoles []string, matchMode string) bool {
+	if len(requiredRoles) == 0 {
+		return false
+	}
+
+	rolesRaw, ok := claims[scope]
+	if !ok {
+		return false
+	}
+	rolesList, ok := rolesRaw.([]interface{})
+	if !ok {
+		return false
+	}
+
+	userRoles := make(map[string]bool, len(rolesList))
+	for _, item := range rolesList {
+		if s, ok := item.(string); ok {
+			userRoles[s] = true
+		}
+	}
+
+	switch matchMode {
+	case "all":
+		for _, r := range requiredRoles {
+			if !userRoles[r] {
+				return false
+			}
+		}
+		return true
+	default: // "any"
+		for _, r := range requiredRoles {
+			if userRoles[r] {
+				return true
+			}
+		}
+		return false
+	}
 }

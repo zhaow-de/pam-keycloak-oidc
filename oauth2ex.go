@@ -6,14 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golang.org/x/net/context/ctxhttp"
-	"golang.org/x/oauth2"
 	"io"
-	"io/ioutil"
 	"mime"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"golang.org/x/net/context/ctxhttp"
+	"golang.org/x/oauth2"
 )
 
 // tokenJSON is the struct representing the HTTP response from OAuth2
@@ -36,7 +36,15 @@ func newTokenRequest(tokenURL, clientID, clientSecret string, v url.Values) (*ht
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.SetBasicAuth(url.QueryEscape(clientID), url.QueryEscape(clientSecret))
+	// Fix for upstream Issue #10 (https://github.com/zhaow-de/pam-keycloak-oidc/issues/10):
+	// The original code was:
+	//   req.SetBasicAuth(url.QueryEscape(clientID), url.QueryEscape(clientSecret))
+	// This caused authentication failures when client credentials contained special
+	// characters (e.g., '!', '#', '$'). The problem: SetBasicAuth already base64-encodes
+	// the "user:password" string per RFC 7617, so wrapping with url.QueryEscape first
+	// would double-encode — '!' became '%21' in the base64 payload, and Keycloak rejected
+	// the credentials because '%21' != '!'.
+	req.SetBasicAuth(clientID, clientSecret)
 	return req, nil
 }
 
@@ -63,7 +71,7 @@ func doTokenRoundTrip(ctx context.Context, req *http.Request) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1<<20))
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 	_ = r.Body.Close()
 	if err != nil {
 		return "", fmt.Errorf("oauth2: cannot fetch token: %v", err)
@@ -136,10 +144,8 @@ func passwordCredentialsTokenEx(ctx context.Context, c oauth2.Config, username, 
 		values.Set("scope", scope)
 	}
 
-	if parameters != nil {
-		for k, v := range parameters {
-			values[k] = v
-		}
+	for k, v := range parameters {
+		values[k] = v
 	}
 
 	return retrieveToken(ctx, &c, values)

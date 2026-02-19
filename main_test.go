@@ -1,118 +1,222 @@
 package main
 
-import "testing"
+import (
+	"regexp"
+	"testing"
 
-func TestEncryptDecrypt(t *testing.T) {
-	orig := "Hello World!"
-	encoded := encryptDecrypt([]byte(orig), "scmi")
-	decoded := encryptDecrypt(encoded, "scmi")
-	result := string(decoded)
-	if result != orig {
-		t.Errorf("2x encryptDecrypt produced %s; want %s", result, orig)
+	"github.com/golang-jwt/jwt/v5"
+)
+
+func TestOTPPasswordPattern_Default(t *testing.T) {
+	// Default OTP: 6 digits (\d{6})
+	pattern := regexp.MustCompile(`^(.+)(\d{6})$`)
+
+	match := pattern.FindStringSubmatch("MyPassword123456")
+	if match == nil {
+		t.Fatal("Default OTP pattern should match password+6digits")
+	}
+	if match[1] != "MyPassword" {
+		t.Errorf("Password part = %s; want MyPassword", match[1])
+	}
+	if match[2] != "123456" {
+		t.Errorf("OTP part = %s; want 123456", match[2])
 	}
 
-	decoded = encryptDecrypt(encoded, "salt")
-	result = string(decoded)
-	if result != "Hgmqo\"Vrrne<" {
-		t.Errorf("encryptDecrypt produced %s; want %s", result, orig)
+	// Only digits, no password part (5 digits — doesn't match 6)
+	match = pattern.FindStringSubmatch("12345")
+	if match != nil {
+		t.Error("5-digit input should not match 6-digit OTP pattern")
+	}
+
+	// Exactly 6 digits — the greedy (.+) requires at least 1 char for password
+	match = pattern.FindStringSubmatch("123456")
+	if match != nil {
+		t.Error("Exactly 6 digits with no password should not match (.+) pattern")
 	}
 }
 
-func TestBase32(t *testing.T) {
-	//
-	// decode regular base32
-	orig := "Hello World!"
-	encoded := "JBSWY3DPEBLW64TMMQQQ===="
-	result := string(b32decode(encoded))
-	if result != orig {
-		t.Errorf("b32decode(%s) produced %s; want %s", encoded, result, orig)
-	}
-	//
-	// decode lower-case encoding
-	orig = "Good morning!!!"
-	encoded = "i5xw6zbanvxxe3tjnztscijb"
-	result = string(b32decode(encoded))
-	if result != orig {
-		t.Errorf("b32decode(%s) produced %s; want %s", encoded, result, orig)
-	}
-	//
-	// decode wrong input
-	encoded = "1+/\\?'^``*"
-	result = string(b32decode(encoded))
-	if result != "" {
-		t.Errorf("b32decode(%s) produced %s; want \"\"", encoded, result)
-	}
-	//
-	// encode regular string
-	orig = "Good morning!!!"
-	encoded = "I5XW6ZBANVXXE3TJNZTSCIJB"
-	result = b32encode([]byte(orig))
-	if result != encoded {
-		t.Errorf("b32encode(%s) produced %s; want %s", orig, result, encoded)
-	}
+func TestOTPPasswordPattern_CustomLength(t *testing.T) {
+	// Custom OTP: 8 digits
+	otpClass := `\d`
+	otpLength := "8"
+	pattern := regexp.MustCompile(`^(.+)(` + otpClass + `{` + otpLength + `})$`)
 
-}
-
-func TestAscii85(t *testing.T) {
-	//
-	// encode then decode
-	orig := "Hello World!"
-	encoded := "87cURD]i,\"Ebo80"
-	result := a85Encode([]byte(orig))
-	if result != encoded {
-		t.Errorf("a85Encode(%s) produced %s; want %s", orig, result, encoded)
+	match := pattern.FindStringSubmatch("MyPassword12345678")
+	if match == nil {
+		t.Fatal("Custom OTP pattern should match password+8digits")
 	}
-	result = string(a85Decode(result))
-	if result != orig {
-		t.Errorf("a85Decode(%s) produced %s; want %s", encoded, result, orig)
+	if match[1] != "MyPassword" {
+		t.Errorf("Password part = %s; want MyPassword", match[1])
 	}
-	//
-	// decode non-ascii85 string
-	encoded = "½😛测试"
-	resultBuf := a85Decode(result)
-	if resultBuf != nil {
-		t.Errorf("a85Decode(%s) produced %s; want nil", encoded, resultBuf)
+	if match[2] != "12345678" {
+		t.Errorf("OTP part = %s; want 12345678", match[2])
 	}
 }
 
-func TestUsername(t *testing.T) {
-	//
-	// regular case
-	// encode
-	username := "zhaow"
-	secret := "G6JWH4VZIWE2KP4NSTFY72H3F3F7ZGAFJ242SDFP32SSS6MDAG2Z5B6ENBJBIDZJ"
-	newUsername := genUsername(username, secret, "scmi")
-	expected := "#n%.G\"Beq)&<YHnqSlFokG[BkLeXb3lXhBgg2Fj;ek-YAEn9jM[gPEKHqF"
-	if newUsername != expected {
-		t.Errorf("genUsername(%s, %s, \"scmi\") produced %s; want %s", username, secret, newUsername, expected)
+func TestOTPPasswordPattern_AlphanumericClass(t *testing.T) {
+	// Custom OTP: 6 alphanumeric characters
+	otpClass := `[a-zA-Z0-9]`
+	otpLength := "6"
+	pattern := regexp.MustCompile(`^(.+)(` + otpClass + `{` + otpLength + `})$`)
+
+	match := pattern.FindStringSubmatch("MyPasswordAbC123")
+	if match == nil {
+		t.Fatal("Alphanumeric OTP pattern should match")
 	}
-	// decode
-	newUsername, newSecret := decodeUsername(expected, "scmi")
-	if newUsername != username || newSecret != secret {
-		t.Errorf("decodeUsername(%s, \"scmi\") produced (%s, %s); want (%s, %s)", expected, newUsername, newSecret, username, secret)
-	}
-	//
-	// decode non-ascii85 string
-	newUsername, newSecret = decodeUsername("½😛测试", "scmi")
-	if newUsername != "" || newSecret != "" {
-		t.Errorf("decodeUsername(%s, \"scmi\") produced (%s, %s); want (\"\", \"\")", expected, newUsername, newSecret)
-	}
-	//
-	// decode ascii85 string without ":" as the separator
-	newUsername, newSecret = decodeUsername("87cURD]i,\"Ebo80", "scmi")
-	if newUsername != "" || newSecret != "" {
-		t.Errorf("decodeUsername(%s, \"scmi\") produced (%s, %s); want (\"\", \"\")", expected, newUsername, newSecret)
+	if match[2] != "AbC123" {
+		t.Errorf("OTP part = %s; want AbC123", match[2])
 	}
 }
 
-func TestOTP(t *testing.T) {
-	secretUsername := "#n%.G\"Bk*ZK>+[MGIcX3nY4jTUh(DWYgQc'XknbKB>/+01M1=0`VH'#K7*"
-	username, secert := decodeUsername(secretUsername, "scmi")
-	if username != "zhaow" {
-		t.Errorf("decodeUsername(%s, \"scmi\") produced wrong username %s; want %s", secretUsername, username, "zhaow")
+func TestOTPPasswordPattern_InvalidRegex(t *testing.T) {
+	// Verify that invalid regex class is caught by regexp.Compile
+	otpClass := `[invalid`
+	otpLength := "6"
+	_, err := regexp.Compile(`^(.+)(` + otpClass + `{` + otpLength + `})$`)
+	if err == nil {
+		t.Error("Invalid regex class should produce compilation error")
 	}
-	token := calculateOtpToken(secert, 1589112197)
-	if token != "024662" {
-		t.Errorf("decodeUsername(%s, \"scmi\") produced wrong OTP token %s; want %s", secretUsername, token, "024662")
+}
+
+func TestCheckRoleAuthorization(t *testing.T) {
+	tests := []struct {
+		name          string
+		scope         string
+		requiredRoles []string
+		matchMode     string
+		claims        jwt.MapClaims
+		want          bool
+	}{
+		// Single role backward compat
+		{
+			name:          "single role match",
+			scope:         "pam_roles",
+			requiredRoles: []string{"admin"},
+			matchMode:     "any",
+			claims:        jwt.MapClaims{"pam_roles": []interface{}{"admin", "user"}},
+			want:          true,
+		},
+		{
+			name:          "single role no match",
+			scope:         "pam_roles",
+			requiredRoles: []string{"admin"},
+			matchMode:     "any",
+			claims:        jwt.MapClaims{"pam_roles": []interface{}{"user", "viewer"}},
+			want:          false,
+		},
+		// OR mode (any)
+		{
+			name:          "any: match first role",
+			scope:         "pam_roles",
+			requiredRoles: []string{"admin", "ssh-user"},
+			matchMode:     "any",
+			claims:        jwt.MapClaims{"pam_roles": []interface{}{"admin"}},
+			want:          true,
+		},
+		{
+			name:          "any: match second role",
+			scope:         "pam_roles",
+			requiredRoles: []string{"admin", "ssh-user"},
+			matchMode:     "any",
+			claims:        jwt.MapClaims{"pam_roles": []interface{}{"ssh-user"}},
+			want:          true,
+		},
+		{
+			name:          "any: no match",
+			scope:         "pam_roles",
+			requiredRoles: []string{"admin", "ssh-user"},
+			matchMode:     "any",
+			claims:        jwt.MapClaims{"pam_roles": []interface{}{"viewer"}},
+			want:          false,
+		},
+		// AND mode (all)
+		{
+			name:          "all: all present",
+			scope:         "pam_roles",
+			requiredRoles: []string{"developer", "ssh-access"},
+			matchMode:     "all",
+			claims:        jwt.MapClaims{"pam_roles": []interface{}{"developer", "ssh-access", "viewer"}},
+			want:          true,
+		},
+		{
+			name:          "all: partial match",
+			scope:         "pam_roles",
+			requiredRoles: []string{"developer", "ssh-access"},
+			matchMode:     "all",
+			claims:        jwt.MapClaims{"pam_roles": []interface{}{"developer"}},
+			want:          false,
+		},
+		{
+			name:          "all: none match",
+			scope:         "pam_roles",
+			requiredRoles: []string{"developer", "ssh-access"},
+			matchMode:     "all",
+			claims:        jwt.MapClaims{"pam_roles": []interface{}{"viewer"}},
+			want:          false,
+		},
+		// Edge cases
+		{
+			name:          "empty required roles",
+			scope:         "pam_roles",
+			requiredRoles: []string{},
+			matchMode:     "any",
+			claims:        jwt.MapClaims{"pam_roles": []interface{}{"admin"}},
+			want:          false,
+		},
+		{
+			name:          "missing scope in claims",
+			scope:         "pam_roles",
+			requiredRoles: []string{"admin"},
+			matchMode:     "any",
+			claims:        jwt.MapClaims{"other_claim": "value"},
+			want:          false,
+		},
+		{
+			name:          "scope is not an array",
+			scope:         "pam_roles",
+			requiredRoles: []string{"admin"},
+			matchMode:     "any",
+			claims:        jwt.MapClaims{"pam_roles": "not-an-array"},
+			want:          false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := checkRoleAuthorization(tt.claims, tt.scope, tt.requiredRoles, tt.matchMode)
+			if got != tt.want {
+				t.Errorf("checkRoleAuthorization() = %v; want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestOTPPasswordPattern_SpecialCharsInPassword(t *testing.T) {
+	// Password with special characters followed by 6-digit OTP
+	pattern := regexp.MustCompile(`^(.+)(\d{6})$`)
+
+	tests := []struct {
+		input    string
+		password string
+		otp      string
+	}{
+		{"P@ss!word123456", "P@ss!word", "123456"},
+		{"test!!123456", "test!!", "123456"},
+		{"p@$$w0rd!!##123456", "p@$$w0rd!!##", "123456"},
+		{"a 123456", "a ", "123456"},
+	}
+
+	for _, tt := range tests {
+		match := pattern.FindStringSubmatch(tt.input)
+		if match == nil {
+			t.Errorf("Pattern should match %q", tt.input)
+			continue
+		}
+		if match[1] != tt.password {
+			t.Errorf("For %q: password = %s; want %s", tt.input, match[1], tt.password)
+		}
+		if match[2] != tt.otp {
+			t.Errorf("For %q: otp = %s; want %s", tt.input, match[2], tt.otp)
+		}
 	}
 }

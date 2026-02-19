@@ -7,8 +7,8 @@ K := $(foreach exec,$(EXECUTABLES),\
 ROOT_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 BINARY=pam-keycloak-oidc
-VERSION=1.4.0
-BUILD=`git rev-parse HEAD`
+VERSION=1.5.4
+BUILD=$(shell git rev-parse HEAD)
 PLATFORMS=darwin linux windows
 ARCHITECTURES=amd64 arm64
 
@@ -21,6 +21,10 @@ all: clean build_all
 build: ## Build the binary for the local architecture
 	go build ${LDFLAGS} -o ${BINARY}
 
+.PHONY: linux_build
+linux_build: ## Build the binary for Linux amd64
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ${LDFLAGS} -o ${BINARY}
+
 .PHONY: build_all
 build_all: ## Build the binary for all architectures
 	$(foreach GOOS, $(PLATFORMS),\
@@ -28,10 +32,19 @@ build_all: ## Build the binary for all architectures
 	$(shell export GOOS=$(GOOS); export GOARCH=$(GOARCH); [[ $(GOOS) == "windows" ]] && export EXT=".exe"; go build -v -o $(BINARY).$(GOOS)-$(GOARCH)$${EXT})))
 	$(info All compiled!)
 
+.PHONY: snapshot
+snapshot: ## Build packages locally (RPM + DEB) without publishing — requires goreleaser
+	goreleaser release --snapshot --clean
+
+.PHONY: test
+test: ## Run tests
+	go test ./...
+
 # Remove only what we've created
 clean:
 	@find ${ROOT_DIR} -name '${BINARY}[.?][a-zA-Z0-9]*[-?][a-zA-Z0-9]*' -delete
+	@rm -rf dist/
 
 .PHONY: help
 help: ## Get help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-10s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-14s\033[0m %s\n", $$1, $$2}'

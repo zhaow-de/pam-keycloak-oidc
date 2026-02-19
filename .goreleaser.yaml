@@ -1,0 +1,98 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# GoReleaser config for pam-keycloak-oidc
+# Docs: https://goreleaser.com
+
+version: 2
+
+env:
+  - GO111MODULE=on
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: .
+    binary: pam-keycloak-oidc
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: '{{ .CommitTimestamp }}'
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.Version={{ .Version }} -X main.Build={{ .Commit }}
+
+checksum:
+  name_template: '{{ .ProjectName }}_checksums.txt'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - 'Merge pull request'
+      - 'Merge branch'
+      - 'go mod tidy'
+
+archives:
+  - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}'
+    files:
+      - packaging/pam-keycloak-oidc.tml.example
+      - packaging/check-keycloak-health.sh
+      - packaging/test_token.sh
+
+nfpms:
+  - file_name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}'
+    formats:
+      - rpm
+      - deb
+    maintainer: 'revalew'
+    description: >-
+      PAM module for Keycloak OIDC authentication with JWKS verification.
+      Provides SSH and sudo authentication against Keycloak with per-server
+      role-based access control and TOTP support.
+    license: MIT
+    bindir: /opt/pam-keycloak-oidc
+
+    # RPM-specific settings
+    rpm:
+      group: System Environment/Base
+
+    # Files to include in the package (besides the binary)
+    contents:
+      # Template config — noreplace means RPM won't overwrite user's edits on upgrade
+      - src: packaging/pam-keycloak-oidc.tml.example
+        dst: /opt/pam-keycloak-oidc/pam-keycloak-oidc.tml
+        type: 'config|noreplace'
+        file_info:
+          mode: 0600
+
+      # Reference copy of the template (always overwritten on upgrade)
+      - src: packaging/pam-keycloak-oidc.tml.example
+        dst: /opt/pam-keycloak-oidc/pam-keycloak-oidc.tml.example
+        file_info:
+          mode: 0644
+
+      # Health check script (noreplace: user may customize KC_URL/KC_REALM)
+      - src: packaging/check-keycloak-health.sh
+        dst: /opt/pam-keycloak-oidc/check-keycloak-health.sh
+        type: 'config|noreplace'
+        file_info:
+          mode: 0755
+
+      # Test script (noreplace: user may customize credentials)
+      - src: packaging/test_token.sh
+        dst: /opt/pam-keycloak-oidc/test_token.sh
+        type: 'config|noreplace'
+        file_info:
+          mode: 0755
+
+    scripts:
+      postinstall: packaging/postinstall.sh

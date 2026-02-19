@@ -1,0 +1,52 @@
+# ============================================================
+# Line ending normalization
+# ============================================================
+# Enforce LF on all text files (prevents CRLF issues when
+# developing on Windows and deploying to Linux)
+* text=auto eol=lf
+
+# ============================================================
+# Go source
+# ============================================================
+*.go text eol=lf
+go.mod text eol=lf
+go.sum text eol=lf
+
+# ============================================================
+# Shell scripts
+# ============================================================
+*.sh text eol=lf
+
+# ============================================================
+# Config files
+# ============================================================
+*.tml text eol=lf
+*.toml text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.cfg text eol=lf
+Makefile text eol=lf
+Dockerfile* text eol=lf
+.goreleaser.yaml text eol=lf
+
+# ============================================================
+# Documentation
+# ============================================================
+*.md text eol=lf
+*.html text eol=lf
+LICENSE text eol=lf
+
+# ============================================================
+# Binary files (never diff, never normalize)
+# ============================================================
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.tar.gz binary
+*.rpm binary
+*.deb binary
