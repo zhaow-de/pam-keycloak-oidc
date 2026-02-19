@@ -34,7 +34,7 @@ You can customize this behavior with three configuration fields:
 
 Examples:
 
-- **8-digit numeric OTP** (hardware tokens): `otp-length="8"`, `otp-class="\d"`
+- **8-digit numeric OTP** (hardware tokens): `otp-length="8"`, `otp-class='\d'`
 - **6-character alphanumeric OTP**: `otp-length="6"`, `otp-class="[a-zA-Z0-9]"`
 - **Mandatory OTP**: `otp-require=true` - rejects login attempts without a valid OTP suffix
 

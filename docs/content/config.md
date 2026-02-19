@@ -42,9 +42,10 @@ otp-only=false
 otp-require=false
 # number of OTP characters to extract from password suffix. Default: "6"
 otp-length="6"
-# regex character class for OTP characters. Default: "\d" (digits only)
-# examples: "\d" for numeric, "[a-zA-Z0-9]" for alphanumeric
-otp-class="\d"
+# regex character class for OTP characters. Default: '\d' (digits only)
+# examples: '\d' for numeric, '[a-zA-Z0-9]' for alphanumeric
+# NOTE: use single quotes (TOML literal strings) for values with backslash
+otp-class='\d'
 ```
 
 ## Field reference
@@ -66,7 +67,7 @@ otp-class="\d"
 | `otp-only`                    | No       | Set to `true` to accept OTP code without password (default: `false`)                         |
 | `otp-require`                 | No       | Set to `true` to reject authentication if no valid OTP suffix is found (default: `false`)    |
 | `otp-length`                  | No       | Number of OTP characters to extract from password suffix (default: `6`)                      |
-| `otp-class`                   | No       | Regex character class for OTP characters (default: `\d`). Use `[a-zA-Z0-9]` for alphanumeric |
+| `otp-class`                   | No       | Regex character class for OTP characters (default: `\d`). Use `[a-zA-Z0-9]` for alphanumeric. **Must use single quotes** in TOML for backslash values (e.g., `'\d'`) |
 | `extra-parameters`            | No       | Additional key-value pairs to include in the token request                                   |
 
 > **Note:** The `jwks-url` and `issuer-url` fields are required in this fork. They enable cryptographic

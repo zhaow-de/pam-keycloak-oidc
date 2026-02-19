@@ -332,9 +332,9 @@ otp-only = false
 otp-require = false
 # Number of OTP characters to extract from password suffix. Default: "6"
 otp-length = "6"
-# Regex character class for OTP characters. Default: "\d" (digits only)
-# Use "[a-zA-Z0-9]" for alphanumeric tokens
-otp-class = "\d"
+# Regex character class for OTP characters. Default: '\d' (digits only)
+# Use '[a-zA-Z0-9]' for alphanumeric tokens
+otp-class = '\d'
 ```
 
 ```bash

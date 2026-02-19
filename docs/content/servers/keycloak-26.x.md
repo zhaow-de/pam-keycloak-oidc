@@ -157,9 +157,9 @@ otp-only=false
 otp-require=false
 # number of OTP characters to extract from password suffix. Default: "6"
 otp-length="6"
-# regex character class for OTP characters. Default: "\d" (digits only)
-# examples: "\d" for numeric, "[a-zA-Z0-9]" for alphanumeric
-otp-class="\d"
+# regex character class for OTP characters. Default: '\d' (digits only)
+# examples: '\d' for numeric, '[a-zA-Z0-9]' for alphanumeric
+otp-class='\d'
 ```
 
 > **Note:** In Keycloak 17+ (Quarkus distribution), the `/auth/` prefix is no longer part of the

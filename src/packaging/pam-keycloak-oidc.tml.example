@@ -59,5 +59,6 @@ otp-require = false
 otp-length = "6"
 
 # Regex character class for OTP characters.
-# Default: "\d" (digits only). Use "[a-zA-Z0-9]" for alphanumeric OTP.
-otp-class = "\d"
+# Default: '\d' (digits only). Use '[a-zA-Z0-9]' for alphanumeric OTP.
+# NOTE: use single quotes (TOML literal strings) for values with backslash.
+otp-class = '\d'
