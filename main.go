@@ -1,3 +1,10 @@
+// PAM return codes used in this module:
+//
+//	0  = PAM_SUCCESS           - authentication and authorization succeeded
+//	2  = PAM_SERVICE_ERR       - auth provider returned an error
+//	4  = PAM_SYSTEM_ERR        - configuration or system error
+//	7  = PAM_PERM_DENIED       - authenticated but not authorized (missing role)
+//	11 = PAM_CRED_INSUFFICIENT - missing username or password
 package main
 
 import (
@@ -159,7 +166,7 @@ func main() {
 	)
 	if err != nil {
 		log.Print(sid, strings.ReplaceAll(err.Error(), "\n", ". "))
-		os.Exit(2)
+		os.Exit(2) // PAM_SERVICE_ERR
 	}
 
 	// Fetch JWKS and verify JWT signature
@@ -202,7 +209,7 @@ func main() {
 
 	if err != nil {
 		log.Print(sid, "JWT verification failed: ", err)
-		os.Exit(7)
+		os.Exit(7) // PAM_PERM_DENIED
 	}
 	if !token.Valid {
 		log.Print(sid, "JWT token is not valid")
