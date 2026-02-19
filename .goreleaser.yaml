@@ -81,15 +81,17 @@ nfpms:
         file_info:
           mode: 0644
 
-      # Health check script
+      # Health check script (noreplace: user may customize KC_URL/KC_REALM)
       - src: src/packaging/check-keycloak-health.sh
         dst: /opt/pam-keycloak-oidc/check-keycloak-health.sh
+        type: 'config|noreplace'
         file_info:
           mode: 0755
 
-      # Test script
+      # Test script (noreplace: user may customize credentials)
       - src: src/packaging/test_token.sh
         dst: /opt/pam-keycloak-oidc/test_token.sh
+        type: 'config|noreplace'
         file_info:
           mode: 0755
 
