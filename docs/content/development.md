@@ -15,13 +15,12 @@ title: 'Development environment'
 
 ```
 .
-├── src/                      # Go source code
-│   ├── *.go                  # Main application code
-│   ├── go.mod / go.sum       # Go modules
-│   └── packaging/            # Packaging scripts and configs
+├── *.go                      # Go source code (main package)
+├── go.mod / go.sum           # Go modules
+├── packaging/                # Packaging scripts and configs
 ├── docs/                     # Hugo documentation site
 ├── Makefile                  # Build automation
-└── .goreleaser.yaml         # Release configuration
+└── .goreleaser.yaml          # Release configuration
 ```
 
 ## Line endings (CRLF / LF)
@@ -63,7 +62,7 @@ make linux_build
 make build_all
 ```
 
-The binary is built from `src/` and placed in the project root.
+The binary is built in the project root.
 It embeds version and build info via `-ldflags`:
 
 ```shell
@@ -77,16 +76,13 @@ It embeds version and build info via `-ldflags`:
 # Run all tests (from project root)
 make test
 
-# Or manually from src/ directory
-cd src
+# Or manually
 go test ./... -v
 
 # Run tests with race detector
-cd src
 go test -race ./... -v
 
 # Run a specific test file / function
-cd src
 go test -v -run TestNewTokenRequest_NoDoubleEncoding
 ```
 
@@ -110,8 +106,6 @@ Create `.git/hooks/pre-commit`:
 ```shell
 #!/bin/sh
 # Pre-commit hook: format + vet
-cd src || exit 1
-
 UNFORMATTED=$(gofmt -l .)
 if [ -n "$UNFORMATTED" ]; then
     echo "gofmt: formatting files:"
@@ -165,11 +159,11 @@ dist/
 The tar.gz archives include:
 
 - `pam-keycloak-oidc` - the binary
-- `src/packaging/pam-keycloak-oidc.tml.example` - reference config template
-- `src/packaging/check-keycloak-health.sh` - health check script for PAM fast-fail
-- `src/packaging/test_token.sh` - test script
+- `packaging/pam-keycloak-oidc.tml.example` - reference config template
+- `packaging/check-keycloak-health.sh` - health check script for PAM fast-fail
+- `packaging/test_token.sh` - test script
 
-The RPM/DEB packages additionally run a post-install script (`src/packaging/postinstall.sh`) that configures SELinux context.
+The RPM/DEB packages additionally run a post-install script (`packaging/postinstall.sh`) that configures SELinux context.
 
 ## Documentation
 
