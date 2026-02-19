@@ -18,6 +18,8 @@ This is a fork of [zhaow-de/pam-keycloak-oidc](https://github.com/zhaow-de/pam-k
 
 - Token expiration enforcement
 
+- Multi-role authorization with `any`/`all` matching (`vpn-user-role` accepts a single string or an array)
+
 - Configurable OTP length and character class (`otp-require`, `otp-length`, `otp-class`)
 
 - Fix for special characters in client secret causing auth failures ([upstream #10](https://github.com/zhaow-de/pam-keycloak-oidc/issues/10))
