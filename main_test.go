@@ -3,6 +3,8 @@ package main
 import (
 	"regexp"
 	"testing"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 func TestOTPPasswordPattern_Default(t *testing.T) {
@@ -73,6 +75,119 @@ func TestOTPPasswordPattern_InvalidRegex(t *testing.T) {
 	_, err := regexp.Compile(`^(.+)(` + otpClass + `{` + otpLength + `})$`)
 	if err == nil {
 		t.Error("Invalid regex class should produce compilation error")
+	}
+}
+
+func TestCheckRoleAuthorization(t *testing.T) {
+	tests := []struct {
+		name          string
+		scope         string
+		requiredRoles []string
+		matchMode     string
+		claims        jwt.MapClaims
+		want          bool
+	}{
+		// Single role backward compat
+		{
+			name:          "single role match",
+			scope:         "pam_roles",
+			requiredRoles: []string{"admin"},
+			matchMode:     "any",
+			claims:        jwt.MapClaims{"pam_roles": []interface{}{"admin", "user"}},
+			want:          true,
+		},
+		{
+			name:          "single role no match",
+			scope:         "pam_roles",
+			requiredRoles: []string{"admin"},
+			matchMode:     "any",
+			claims:        jwt.MapClaims{"pam_roles": []interface{}{"user", "viewer"}},
+			want:          false,
+		},
+		// OR mode (any)
+		{
+			name:          "any: match first role",
+			scope:         "pam_roles",
+			requiredRoles: []string{"admin", "ssh-user"},
+			matchMode:     "any",
+			claims:        jwt.MapClaims{"pam_roles": []interface{}{"admin"}},
+			want:          true,
+		},
+		{
+			name:          "any: match second role",
+			scope:         "pam_roles",
+			requiredRoles: []string{"admin", "ssh-user"},
+			matchMode:     "any",
+			claims:        jwt.MapClaims{"pam_roles": []interface{}{"ssh-user"}},
+			want:          true,
+		},
+		{
+			name:          "any: no match",
+			scope:         "pam_roles",
+			requiredRoles: []string{"admin", "ssh-user"},
+			matchMode:     "any",
+			claims:        jwt.MapClaims{"pam_roles": []interface{}{"viewer"}},
+			want:          false,
+		},
+		// AND mode (all)
+		{
+			name:          "all: all present",
+			scope:         "pam_roles",
+			requiredRoles: []string{"developer", "ssh-access"},
+			matchMode:     "all",
+			claims:        jwt.MapClaims{"pam_roles": []interface{}{"developer", "ssh-access", "viewer"}},
+			want:          true,
+		},
+		{
+			name:          "all: partial match",
+			scope:         "pam_roles",
+			requiredRoles: []string{"developer", "ssh-access"},
+			matchMode:     "all",
+			claims:        jwt.MapClaims{"pam_roles": []interface{}{"developer"}},
+			want:          false,
+		},
+		{
+			name:          "all: none match",
+			scope:         "pam_roles",
+			requiredRoles: []string{"developer", "ssh-access"},
+			matchMode:     "all",
+			claims:        jwt.MapClaims{"pam_roles": []interface{}{"viewer"}},
+			want:          false,
+		},
+		// Edge cases
+		{
+			name:          "empty required roles",
+			scope:         "pam_roles",
+			requiredRoles: []string{},
+			matchMode:     "any",
+			claims:        jwt.MapClaims{"pam_roles": []interface{}{"admin"}},
+			want:          false,
+		},
+		{
+			name:          "missing scope in claims",
+			scope:         "pam_roles",
+			requiredRoles: []string{"admin"},
+			matchMode:     "any",
+			claims:        jwt.MapClaims{"other_claim": "value"},
+			want:          false,
+		},
+		{
+			name:          "scope is not an array",
+			scope:         "pam_roles",
+			requiredRoles: []string{"admin"},
+			matchMode:     "any",
+			claims:        jwt.MapClaims{"pam_roles": "not-an-array"},
+			want:          false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := checkRoleAuthorization(tt.claims, tt.scope, tt.requiredRoles, tt.matchMode)
+			if got != tt.want {
+				t.Errorf("checkRoleAuthorization() = %v; want %v", got, tt.want)
+			}
+		})
 	}
 }
 

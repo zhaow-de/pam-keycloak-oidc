@@ -105,11 +105,16 @@ sudo chmod 755 /opt/pam-keycloak-oidc/test_token.sh
 
 | File                                                   | Purpose                                   |
 | ------------------------------------------------------ | ----------------------------------------- |
-| `/opt/pam-keycloak-oidc/pam-keycloak-oidc`             | PAM binary                                |
-| `/opt/pam-keycloak-oidc/pam-keycloak-oidc.tml`         | Config (edit this - preserved on upgrade) |
-| `/opt/pam-keycloak-oidc/pam-keycloak-oidc.tml.example` | Reference config template                 |
-| `/opt/pam-keycloak-oidc/check-keycloak-health.sh`      | Health check script for PAM fast-fail     |
-| `/opt/pam-keycloak-oidc/test_token.sh`                 | Test script for quick role validation     |
+| `/opt/pam-keycloak-oidc/pam-keycloak-oidc`             | PAM binary                                         |
+| `/opt/pam-keycloak-oidc/pam-keycloak-oidc.tml`         | Config (edit this - preserved on upgrade)            |
+| `/opt/pam-keycloak-oidc/pam-keycloak-oidc.tml.example` | Reference config template (always updated)           |
+| `/opt/pam-keycloak-oidc/check-keycloak-health.sh`      | Health check script (preserved on upgrade)            |
+| `/opt/pam-keycloak-oidc/test_token.sh`                 | Test script (preserved on upgrade)                    |
+
+> **Upgrade note:** Files marked "preserved on upgrade" use RPM `config(noreplace)`.
+> If you have customized them, the package keeps your version and saves the new one
+> as `.rpmnew` (RPM) or `.dpkg-new` (DEB). Check for these files after upgrading
+> and merge any changes manually.
 
 ## Configuration
 

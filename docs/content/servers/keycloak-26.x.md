@@ -136,8 +136,9 @@ redirect-url="urn:ietf:wg:oauth:2.0:oob"
 # OAuth2 scope to be requested, which contains the role information of a user
 # this value is also used as the JWT claim key for role lookup
 scope="pam_roles"
-# name of the role to be matched, only Keycloak users who is assigned with this role could be accepted
+# role(s) to match — single string or array: vpn-user-role=["role1", "role2"]
 vpn-user-role="demo-pam-authentication"
+# role-match="any"  # "any" (default, OR) or "all" (AND)
 # retrieve from the meta-data at https://keycloak.example.com/realms/demo-pam/.well-known/openid-configuration
 endpoint-auth-url="https://keycloak.example.com/realms/demo-pam/protocol/openid-connect/auth"
 endpoint-token-url="https://keycloak.example.com/realms/demo-pam/protocol/openid-connect/token"

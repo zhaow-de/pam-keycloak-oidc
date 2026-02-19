@@ -304,9 +304,11 @@ redirect-url     = "urn:ietf:wg:oauth:2.0:oob"
 # Code does: claims[config.Scope] - must match Token Claim Name in mapper
 scope = "ssh_roles"
 
-# -- Required role for THIS server group --
+# -- Required role(s) for THIS server group --
 # ONLY setting that differs between server groups
+# Accepts a single string or array: vpn-user-role = ["dev-ssh", "admin-ssh"]
 vpn-user-role    = "dev-ssh"
+# role-match = "any"  # "any" (default, OR) or "all" (AND)
 
 # -- Endpoints --
 endpoint-auth-url  = "https://keycloak.example.local/realms/REALM/protocol/openid-connect/auth"

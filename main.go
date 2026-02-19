@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -212,16 +211,55 @@ func main() {
 
 	// Token signature verified -- check role claims
 	if claims, ok := token.Claims.(jwt.MapClaims); ok {
-		if roles, ok := claims[config.Scope]; ok {
-			for _, item := range roles.([]interface{}) {
-				if reflect.ValueOf(item).Kind() == reflect.String && item == config.MandatoryUserRole {
-					log.Print(sid, "Authentication succeeded")
-					os.Exit(0)
-				}
-			}
+		if checkRoleAuthorization(claims, config.Scope, config.MandatoryUserRole, config.RoleMatch) {
+			log.Print(sid, "Authentication succeeded")
+			os.Exit(0)
 		}
 	}
 
 	log.Print(sid, "Authentication was successful but authorization failed")
 	os.Exit(7) // PAM_PERM_DENIED
+}
+
+// checkRoleAuthorization checks whether the token's role claims satisfy
+// the configured role requirements.
+//   - "any" mode: at least one required role must be present (OR)
+//   - "all" mode: every required role must be present (AND)
+func checkRoleAuthorization(claims jwt.MapClaims, scope string, requiredRoles []string, matchMode string) bool {
+	if len(requiredRoles) == 0 {
+		return false
+	}
+
+	rolesRaw, ok := claims[scope]
+	if !ok {
+		return false
+	}
+	rolesList, ok := rolesRaw.([]interface{})
+	if !ok {
+		return false
+	}
+
+	userRoles := make(map[string]bool, len(rolesList))
+	for _, item := range rolesList {
+		if s, ok := item.(string); ok {
+			userRoles[s] = true
+		}
+	}
+
+	switch matchMode {
+	case "all":
+		for _, r := range requiredRoles {
+			if !userRoles[r] {
+				return false
+			}
+		}
+		return true
+	default: // "any"
+		for _, r := range requiredRoles {
+			if userRoles[r] {
+				return true
+			}
+		}
+		return false
+	}
 }

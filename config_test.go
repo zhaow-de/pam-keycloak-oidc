@@ -89,8 +89,8 @@ func TestLoadConfigFromReader_ValidConfig(t *testing.T) {
 	if config.Scope != "test_roles" {
 		t.Errorf("Scope = %s; want test_roles", config.Scope)
 	}
-	if config.MandatoryUserRole != "test-vpn-access" {
-		t.Errorf("MandatoryUserRole = %s; want test-vpn-access", config.MandatoryUserRole)
+	if len(config.MandatoryUserRole) != 1 || config.MandatoryUserRole[0] != "test-vpn-access" {
+		t.Errorf("MandatoryUserRole = %v; want [test-vpn-access]", config.MandatoryUserRole)
 	}
 	if config.AuthEndpoint != "https://auth.example.com/auth" {
 		t.Errorf("AuthEndpoint = %s; want https://auth.example.com/auth", config.AuthEndpoint)
@@ -431,6 +431,73 @@ func TestConfig_ApplyDefaults_PreservesExisting(t *testing.T) {
 	}
 	if config.OTPClass != "[a-zA-Z0-9]" {
 		t.Errorf("OTPClass should be preserved, got %s", config.OTPClass)
+	}
+}
+
+func TestConfig_SingleRoleParsing(t *testing.T) {
+	config, err := LoadConfigFromReader(minimalConfigTOML + `
+vpn-user-role="admin"
+`)
+	if err != nil {
+		t.Fatalf("Failed to parse config: %v", err)
+	}
+	if len(config.MandatoryUserRole) != 1 || config.MandatoryUserRole[0] != "admin" {
+		t.Errorf("MandatoryUserRole = %v; want [admin]", config.MandatoryUserRole)
+	}
+}
+
+func TestConfig_MultiRoleParsing(t *testing.T) {
+	config, err := LoadConfigFromReader(minimalConfigTOML + `
+vpn-user-role=["admin", "ssh-user", "developer"]
+`)
+	if err != nil {
+		t.Fatalf("Failed to parse config: %v", err)
+	}
+	if len(config.MandatoryUserRole) != 3 {
+		t.Fatalf("MandatoryUserRole length = %d; want 3", len(config.MandatoryUserRole))
+	}
+	expected := []string{"admin", "ssh-user", "developer"}
+	for i, role := range expected {
+		if config.MandatoryUserRole[i] != role {
+			t.Errorf("MandatoryUserRole[%d] = %s; want %s", i, config.MandatoryUserRole[i], role)
+		}
+	}
+}
+
+func TestConfig_RoleMatchDefault(t *testing.T) {
+	config, err := LoadConfigFromReader(minimalConfigTOML)
+	if err != nil {
+		t.Fatalf("Failed to parse config: %v", err)
+	}
+	config.ApplyDefaults()
+	if config.RoleMatch != "any" {
+		t.Errorf("RoleMatch = %s; want any", config.RoleMatch)
+	}
+}
+
+func TestConfig_RoleMatchAll(t *testing.T) {
+	config, err := LoadConfigFromReader(minimalConfigTOML + `
+vpn-user-role=["developer", "ssh-access"]
+role-match="all"
+`)
+	if err != nil {
+		t.Fatalf("Failed to parse config: %v", err)
+	}
+	if config.RoleMatch != "all" {
+		t.Errorf("RoleMatch = %s; want all", config.RoleMatch)
+	}
+}
+
+func TestConfig_RoleMatchInvalid(t *testing.T) {
+	config, err := LoadConfigFromReader(minimalConfigTOML + `
+role-match="invalid"
+`)
+	if err != nil {
+		t.Fatalf("Failed to parse config: %v", err)
+	}
+	err = config.Validate()
+	if err == nil {
+		t.Error("Validate() should return error for invalid role-match")
 	}
 }
 

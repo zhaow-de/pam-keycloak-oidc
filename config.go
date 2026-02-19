@@ -9,6 +9,29 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+// StringOrSlice accepts both a single string and an array of strings in TOML.
+// Examples: vpn-user-role = "admin" or vpn-user-role = ["admin", "ssh-user"]
+type StringOrSlice []string
+
+// UnmarshalTOML implements the toml.Unmarshaler interface.
+func (s *StringOrSlice) UnmarshalTOML(data interface{}) error {
+	switch v := data.(type) {
+	case string:
+		*s = []string{v}
+	case []interface{}:
+		for _, item := range v {
+			str, ok := item.(string)
+			if !ok {
+				return fmt.Errorf("expected string in vpn-user-role array, got %T", item)
+			}
+			*s = append(*s, str)
+		}
+	default:
+		return fmt.Errorf("vpn-user-role: expected string or array, got %T", data)
+	}
+	return nil
+}
+
 // Config holds the OIDC/OAuth2 configuration loaded from a TOML file.
 type Config struct {
 	ClientId                 string            `toml:"client-id"`
@@ -18,7 +41,8 @@ type Config struct {
 	AuthEndpoint             string            `toml:"endpoint-auth-url"`
 	TokenEndpoint            string            `toml:"endpoint-token-url"`
 	UsernameFormat           string            `toml:"username-format"`
-	MandatoryUserRole        string            `toml:"vpn-user-role"`
+	MandatoryUserRole        StringOrSlice     `toml:"vpn-user-role"`
+	RoleMatch                string            `toml:"role-match"`
 	AccessTokenSigningMethod string            `toml:"access-token-signing-method"`
 	XORKey                   string            `toml:"xor-key"`
 	OTPOnly                  bool              `toml:"otp-only"`
@@ -113,6 +137,9 @@ func (c *Config) Validate() error {
 	if c.IssuerUrl == "" {
 		return fmt.Errorf("%w: issuer-url", ErrMissingRequired)
 	}
+	if c.RoleMatch != "" && c.RoleMatch != "any" && c.RoleMatch != "all" {
+		return fmt.Errorf("%w: role-match must be 'any' or 'all', got '%s'", ErrMissingRequired, c.RoleMatch)
+	}
 	return nil
 }
 
@@ -129,5 +156,8 @@ func (c *Config) ApplyDefaults() {
 	}
 	if c.OTPClass == "" {
 		c.OTPClass = `\d`
+	}
+	if c.RoleMatch == "" {
+		c.RoleMatch = "any"
 	}
 }

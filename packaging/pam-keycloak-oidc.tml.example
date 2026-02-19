@@ -20,10 +20,18 @@ redirect-url     = "urn:ietf:wg:oauth:2.0:oob"
 # Keycloak mapper. Do NOT put "openid" here.
 scope = "ssh_roles"
 
-# -- SERVER LABEL: required role for this machine --
+# -- SERVER LABEL: required role(s) for this machine --
 # Only Keycloak users assigned this role will be granted access.
 # Change per server group: dev-ssh, qa-ssh, oracle-ssh, admin-ssh, etc.
+# Accepts a single string or an array of strings:
+#   vpn-user-role = "dev-ssh"                     # single role
+#   vpn-user-role = ["dev-ssh", "admin-ssh"]      # multiple roles
 vpn-user-role    = "CHANGE_ME"
+
+# Role matching mode when multiple roles are specified.
+# "any" (default) = user needs at least ONE of the listed roles (OR)
+# "all"           = user needs ALL of the listed roles (AND)
+# role-match = "any"
 
 # -- Endpoints (adjust realm name) --
 endpoint-auth-url  = "https://keycloak.example.com/realms/REALM/protocol/openid-connect/auth"

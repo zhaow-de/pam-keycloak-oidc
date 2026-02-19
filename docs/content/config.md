@@ -21,8 +21,10 @@ redirect-url="urn:ietf:wg:oauth:2.0:oob"
 # OAuth2 scope to be requested, which contains the role information of a user
 # this value is also used as the JWT claim key for role lookup
 scope="pam_roles"
-# name of the role to be matched, only Keycloak users who is assigned with this role could be accepted
+# role(s) to match — single string or array of strings
 vpn-user-role="demo-pam-authentication"
+# vpn-user-role=["demo-pam-authentication", "admin"]
+# role-match="any"  # "any" (default, OR) or "all" (AND)
 # retrieve from the meta-data at https://keycloak.example.com/realms/demo-pam/.well-known/openid-configuration
 endpoint-auth-url="https://keycloak.example.com/realms/demo-pam/protocol/openid-connect/auth"
 endpoint-token-url="https://keycloak.example.com/realms/demo-pam/protocol/openid-connect/token"
@@ -56,7 +58,8 @@ otp-class='\d'
 | `client-secret`               | Yes      | Client secret from the Credentials tab                                                       |
 | `redirect-url`                | Yes      | Use `urn:ietf:wg:oauth:2.0:oob` for non-interactive flows                                    |
 | `scope`                       | Yes      | OAuth2 scope containing role claims; also used as the JWT claim key                          |
-| `vpn-user-role`               | Yes      | Role name to match in the token claims                                                       |
+| `vpn-user-role`               | Yes      | Role(s) to match in the token claims. String or array of strings (e.g., `["admin", "ssh"]`)  |
+| `role-match`                  | No       | `"any"` (default) = user needs at least one role; `"all"` = user needs every role            |
 | `endpoint-auth-url`           | Yes      | OIDC authorization endpoint                                                                  |
 | `endpoint-token-url`          | Yes      | OIDC token endpoint                                                                          |
 | `jwks-url`                    | Yes      | JWKS endpoint for fetching public keys (must use HTTPS)                                      |
