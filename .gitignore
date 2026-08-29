@@ -9,8 +9,9 @@ pam-keycloak-oidc.*
 
 ### Claude Code
 
-.claude/
-CLAUDE.md
+# CLAUDE.md and .claude/{rules,skills,settings.json} are tracked on purpose:
+# they are the repo's agent conventions and must survive a fresh clone.
+.claude/settings.local.json
 
 ### Windows template
 # Windows thumbnail cache files
@@ -50,6 +51,9 @@ $RECYCLE.BIN/
 [Ll]ib64
 [Ll]ocal
 [Ss]cripts
+# ...but this repo's scripts/ holds the pre-commit hooks and must be tracked:
+# ignored, the staged-kind hook exits 127 in every fresh clone.
+!scripts/
 pyvenv.cfg
 .venv
 pip-selfcheck.json

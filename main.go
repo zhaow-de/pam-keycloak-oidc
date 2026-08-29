@@ -190,15 +190,15 @@ func main() {
 		// important to validate the `alg` presented is what we expected, according to:
 		// https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/
 		if strings.HasPrefix(token.Header["alg"].(string), "RS") {
-		    if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			    log.Fatal(sid, "Unexpected signing method: ", token.Header["alg"])
-		    }
+			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+				log.Fatal(sid, "Unexpected signing method: ", token.Header["alg"])
+			}
 		} else if strings.HasPrefix(token.Header["alg"].(string), "ES") {
-		    if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
-			    log.Fatal(sid, "Unexpected signing method: ", token.Header["alg"])
-		    }
-        } else if _, ok := token.Method.(*jwt.SigningMethodEd25519); !ok {
-			    log.Fatal(sid, "Unexpected signing method: ", token.Header["alg"])
+			if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
+				log.Fatal(sid, "Unexpected signing method: ", token.Header["alg"])
+			}
+		} else if _, ok := token.Method.(*jwt.SigningMethodEd25519); !ok {
+			log.Fatal(sid, "Unexpected signing method: ", token.Header["alg"])
 		}
 		return token, nil
 	})

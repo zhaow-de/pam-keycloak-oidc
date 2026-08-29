@@ -1,0 +1,43 @@
+version: "2"
+
+# Every enabled linter is GREEN on this tree today (not every green linter is enabled): a gate that is red
+# on unmodified code gets bypassed with --no-verify and stops being a gate.
+linters:
+  enable:
+    - bodyclose
+    - copyloopvar
+    - gosec
+    - misspell
+    - nilerr
+    - unconvert
+  exclusions:
+    rules:
+      # Test fixtures are fake-but-real-shaped by convention (go-style.md), so
+      # gosec's credential detectors fire on every one of them: G101 on the
+      # `&Config{…}` literals in the Validate tests, G117 on tokenJSON fixtures,
+      # G306 on the 0644 t.TempDir writes.
+      - path: _test\.go$
+        linters: [gosec]
+      # RFC 6238 MANDATES HMAC-SHA1 for TOTP. The blocklist entry is correct in
+      # general and wrong here; swapping the primitive would break every
+      # enrolled authenticator.
+      - text: "G505"
+        linters: [gosec]
+      # Log injection: PAM_USER reaches the log line via the sid prefix. Real,
+      # and only partly mitigated (main.go flattens newlines out of ERROR text,
+      # not out of the username). Registered as a trap in
+      # .claude/rules/go-style.md rather than silently dropped.
+      - text: "G706"
+        linters: [gosec]
+
+# Deliberately NOT enabled, with what each would cost today:
+#   revive     ClientId/RedirectUri field renames (an API change to a struct decoded
+#              from TOML), plus unused-parameter noise in tests.
+#   errorlint  mostly the `err.(*retrieveError)` idiom oauth2ex.go uses on purpose
+#              (retrieveError has no Unwrap), plus a non-wrapping `%v` in oauth2ex.go
+#              and an errors.Unwrap comparison in config_test.go.
+#   gocritic   cosmetic (assignOp, sloppyLen) in main.go.
+# Counts are not recorded here: most hits are in _test.go, so one new test moves a
+# number nothing re-checks. Run the linter to get the current cost.
+# Each is a source change, not a config change; enable one only together with the
+# commit that fixes its findings.

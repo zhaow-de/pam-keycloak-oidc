@@ -1,0 +1,6 @@
+{
+    "files.insertFinalNewline": true,
+    "files.autoSave": "afterDelay",
+    "workbench.colorTheme": "Light Modern",
+    "workbench.iconTheme": "vscode-modern-icons"
+}

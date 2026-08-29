@@ -1,0 +1,22 @@
+[tool.commitizen]
+name = "cz_customize"
+version = "1.4.0"
+tag_format = "r$version"
+annotated_tag = true
+version_files = [
+    "README.md:Current version: ",
+    "doc/content/_index.md:Current version: ",
+    "Makefile:^VERSION",
+]
+bump_message = "build(repo): bumped version $current_version → $new_version"
+
+# Bump rules (cz_customize). bump_map keys are matched against bump_pattern's
+# capture group, so the pattern wraps "type(scope)!" in ONE group to make the
+# breaking "!" visible to the "^.+!" key. Note "doc" is singular here — that is
+# this repo's spelling and "docs:" never appears in its history.
+#   MAJOR: "!" suffix or "BREAKING CHANGE"
+#   PATCH: fix, doc, test, chore, claude
+#   MINOR: feat, refactor, build
+[tool.commitizen.customize]
+bump_pattern = "^((?:feat|fix|chore|doc|test|refactor|build|claude)(?:\\(.+\\))?!?|BREAKING[ -]CHANGE)"
+bump_map = {"^.+!" = "MAJOR", "^BREAKING" = "MAJOR", "fix" = "PATCH", "doc" = "PATCH", "test" = "PATCH", "chore" = "PATCH", "claude" = "PATCH", "feat" = "MINOR", "refactor" = "MINOR", "build" = "MINOR"}
