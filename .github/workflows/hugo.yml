@@ -4,6 +4,13 @@ on:
   push:
     branches:
       - main
+    # Nothing outside doc/ feeds the site build, so a code-only push to main no
+    # longer redeploys Pages. The workflow file is listed too, or a HUGO_VERSION
+    # bump would never reach the published site. workflow_dispatch ignores
+    # `paths`, so it stays the manual escape hatch.
+    paths:
+      - 'doc/**'
+      - '.github/workflows/hugo.yml'
   workflow_dispatch:
 
 permissions:
@@ -25,7 +32,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      HUGO_VERSION: 0.154.3
+      HUGO_VERSION: 0.165.0
     steps:
       - name: Install Hugo CLI
         run: |
@@ -34,13 +41,13 @@ jobs:
       - name: Install Dart Sass
         run: sudo snap install dart-sass
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           submodules: recursive
           fetch-depth: 0
       - name: Setup Pages
         id: pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
       - name: Install Node.js dependencies
         run: "[[ -f package-lock.json || -f npm-shrinkwrap.json ]] && npm ci || true"
       - name: Build with Hugo
@@ -55,7 +62,7 @@ jobs:
             --minify \
             --baseURL "${{ steps.pages.outputs.base_url }}/"
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: ./doc/public
 
@@ -68,4 +75,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

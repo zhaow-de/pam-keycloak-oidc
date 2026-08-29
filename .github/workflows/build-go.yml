@@ -5,6 +5,11 @@ on:
       - 'r*'
   workflow_dispatch:
 
+# The release step needs this; the archived actions silently relied on the
+# repository's default token permission instead.
+permissions:
+  contents: write
+
 jobs:
   build_and_publish:
     name: Build and publish the application
@@ -12,18 +17,18 @@ jobs:
     steps:
       -
         name: Check out the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       -
         name: Setup golang version
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
-          go-version: '^1.23'
+          go-version: '1.27.0'
       -
         name: Verify golang version
         run: go version
       -
         name: Cache go modules
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
@@ -36,73 +41,36 @@ jobs:
         name: Build
         run: make all
       -
-        name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # `make all` cannot fail: build_all runs `go build` inside $(shell ...),
+        # which discards the exit code. Copying each expected binary under its
+        # published name fails the job HERE if one is missing, before a release
+        # exists. Keep this step ahead of the publish step: anything that creates
+        # the release first leaves a public release carrying no binaries.
+        name: Stage release assets under their published names
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp pam-keycloak-oidc.linux-amd64       dist/pam-keycloak-oidc.linux-amd64
+          cp pam-keycloak-oidc.linux-arm64       dist/pam-keycloak-oidc.linux-arm64
+          cp pam-keycloak-oidc.darwin-amd64      dist/pam-keycloak-oidc.macOS-intel
+          cp pam-keycloak-oidc.darwin-arm64      dist/pam-keycloak-oidc.macOS-arm64
+          cp pam-keycloak-oidc.windows-amd64.exe dist/pam-keycloak-oidc-amd64.exe
+          cp pam-keycloak-oidc.windows-arm64.exe dist/pam-keycloak-oidc-arm64.exe
+          ls -l dist
+      -
+        # Asset names are the basenames staged above and are a public contract
+        # (.claude/rules/release.md) — every published release's download URLs
+        # already carry them.
+        name: Publish release
+        uses: softprops/action-gh-release@v3.0.2
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
-      -
-        name: Upload Release Asset (Linux amd64)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./pam-keycloak-oidc.linux-amd64
-          asset_name: pam-keycloak-oidc.linux-amd64
-          asset_content_type: application/octet-stream
-      -
-        name: Upload Release Asset (Linux arm64)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./pam-keycloak-oidc.linux-arm64
-          asset_name: pam-keycloak-oidc.linux-arm64
-          asset_content_type: application/octet-stream
-      -
-        name: Upload Release Asset (macOS amd64)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./pam-keycloak-oidc.darwin-amd64
-          asset_name: pam-keycloak-oidc.macOS-intel
-          asset_content_type: application/octet-stream
-      -
-        name: Upload Release Asset (macOS arm64)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./pam-keycloak-oidc.darwin-arm64
-          asset_name: pam-keycloak-oidc.macOS-arm64
-          asset_content_type: application/octet-stream
-      -
-        name: Upload Release Asset (Windows amd64)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./pam-keycloak-oidc.windows-amd64.exe
-          asset_name: pam-keycloak-oidc-amd64.exe
-          asset_content_type: application/octet-stream
-      -
-        name: Upload Release Asset (Windows arm64)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./pam-keycloak-oidc.windows-arm64.exe
-          asset_name: pam-keycloak-oidc-arm64.exe
-          asset_content_type: application/octet-stream
+          fail_on_unmatched_files: true
+          # Notes are GitHub's own "What's Changed" list, built from the PRs merged
+          # since the previous tag — this repo keeps no CHANGELOG.md, so `/release`
+          # pushes the tag and the notes are assembled here.
+          generate_release_notes: true
+          files: dist/*
