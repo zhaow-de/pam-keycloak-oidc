@@ -1,6 +1,6 @@
 [tool.commitizen]
 name = "cz_customize"
-version = "1.4.0"
+version = "2.0.0-a0"
 # The 1.x line used `r$version`; from 2.0.0 the tag is the bare version.
 # `.cz.toml` is per-branch, so a support/1.x branch cut from main keeps the
 # old format and the two tracks never collide.
