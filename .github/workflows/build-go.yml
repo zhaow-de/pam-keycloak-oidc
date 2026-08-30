@@ -65,21 +65,23 @@ jobs:
           cp pam-keycloak-oidc.windows-arm64.exe dist/pam-keycloak-oidc-arm64.exe
           ls -l dist
       -
-        # `r<version>` is not a version GoReleaser can parse; hand it the
-        # v-prefixed equivalent so nfpm gets a valid package version.
-        name: Derive the package version from the tag
-        run: echo "GORELEASER_CURRENT_TAG=v${GITHUB_REF_NAME#r}" >> "$GITHUB_ENV"
-      -
         # GoReleaser builds ONLY the RPM/DEB packages (release.disable is set in
         # .goreleaser.yaml); the six binaries and the release itself stay with the
         # steps above and below.
+        #
+        # It reads the version from the tag itself, which works because 2.x tags
+        # are bare semver. The 1.x line's `r<version>` tags are not semver and
+        # GoReleaser would refuse them, so packaging is skipped there — that line
+        # predates packaging and ships binaries only.
         name: Build the RPM and DEB packages
+        if: ${{ !startsWith(github.ref_name, 'r') }}
         uses: goreleaser/goreleaser-action@v6
         with:
           version: '~> v2'
           args: release --clean
       -
         name: Add the packages to the release assets
+        if: ${{ !startsWith(github.ref_name, 'r') }}
         run: |
           set -euo pipefail
           cp dist-pkg/*.rpm dist-pkg/*.deb dist/
