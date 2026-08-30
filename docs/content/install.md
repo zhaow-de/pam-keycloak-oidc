@@ -40,7 +40,7 @@ platform is not amd64 or arm64, compile this golang application for the appropri
 6. Config PAM. Create PAM config file, e.g. `/etc/pam.d/radiusd`
    ```
    account	required			pam_permit.so
-   auth	[success=1 default=ignore]	pam_exec.so	expose_authtok	log=/var/log/pam-keycloak-oidc.log	/opt/pam-keycloak-oidcpam-keycloak-oidc
+   auth	[success=1 default=ignore]	pam_exec.so	expose_authtok	log=/var/log/pam-keycloak-oidc.log	/opt/pam-keycloak-oidc/pam-keycloak-oidc
    auth	requisite			pam_deny.so
    auth	required			pam_permit.so
    ```

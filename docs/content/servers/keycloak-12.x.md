@@ -1,5 +1,6 @@
 ---
 title: "Keycloak 12.x"
+weight: 20
 # The page shipped for years at the misspelled path; the alias keeps every
 # published link and bookmark resolving after the rename.
 aliases:
