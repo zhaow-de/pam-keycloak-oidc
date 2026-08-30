@@ -116,6 +116,12 @@ func main() {
 			"'. Your TOTP token for now is: '" + calculateOtpToken(secret, time.Now().Unix()) + "'.")
 		return
 	}
+	//
+	// Only the authentication path needs a complete config; the two username
+	// utilities above run on a half-configured box on purpose.
+	if err := config.Validate(); err != nil {
+		log.Fatal("Configuration is incomplete: ", err)
+	}
 	var inputEnv, inputStdio string
 	//
 	// Extract username, password, and otpCode
@@ -132,21 +138,32 @@ func main() {
 		otpCode = calculateOtpToken(otpSecret, time.Now().Unix())
 		password = inputStdio
 	} else {
-		// regular user detected, who should have the OTP code as the last 6 digits of the password
+		// regular user detected, whose OTP is the tail of what they typed.
 		username = inputEnv
-		var passwordPattern = regexp.MustCompile(`^(.+)(\d{6})$`)
+		//
+		// otp-class is a complete regex atom, not a bare escape letter: `\d` and
+		// `[a-zA-Z0-9]` are both valid. Compile, never MustCompile — a bad class
+		// in a config file must not panic the auth path.
+		passwordPattern, err := regexp.Compile(`^(.+)(` + config.OTPClass + `{` + config.OTPLength + `})$`)
+		if err != nil {
+			log.Fatal("Invalid otp-class/otp-length: ", err)
+		}
 		match := passwordPattern.FindStringSubmatch(inputStdio)
 		if match != nil {
 			password = match[1]
 			otpCode = match[2]
+		} else if config.OTPOnly {
+			password = "_"
+			otpCode = inputStdio
+		} else if config.OTPRequire {
+			// Refuse rather than silently attempting a password-only bind.
+			password = inputStdio
+			otpCode = ""
+			log.Println("Rejected: otp-require is set and no OTP was appended to the password")
+			os.Exit(11)
 		} else {
-			if config.OTPOnly {
-				password = "_"
-				otpCode = inputStdio
-			} else {
-				password = inputStdio
-				otpCode = ""
-			}
+			password = inputStdio
+			otpCode = ""
 		}
 	}
 	sid := fmt.Sprintf("[%s]-(%s) ", uuid.New().String(), username)
@@ -228,22 +245,50 @@ func main() {
 		log.Print(sid, "Access token claims are not a JSON object")
 		os.Exit(2)
 	}
-	if roles, present := claims[config.Scope]; present {
-		//
-		// Checked assertion: an IdP that publishes the roles claim as anything but an
-		// array used to panic here, and a Go panic exits 2 — indistinguishable from an
-		// OAuth2 failure.
-		if list, isArray := roles.([]interface{}); isArray {
-			for _, item := range list {
-				if role, isString := item.(string); isString && role == config.MandatoryUserRole {
-					log.Print(sid, "Authentication succeeded")
-					os.Exit(0)
-				}
-			}
-		} else {
-			log.Print(sid, "Claim ", config.Scope, " is not an array of roles")
-		}
+	if checkRoleAuthorization(claims, config.Scope, config.MandatoryUserRole, config.RoleMatch) {
+		log.Print(sid, "Authentication succeeded")
+		os.Exit(0)
 	}
 
 	os.Exit(7) // PAM_PERM_DENIED
+}
+
+// checkRoleAuthorization reports whether the token's role claim satisfies the
+// configured requirement: "all" needs every listed role, anything else needs one.
+//
+// The claim is asserted with a checked type assertion on purpose. An IdP that
+// publishes the claim as anything but an array of strings used to panic here, and
+// a Go panic exits 2 — indistinguishable from an OAuth2 failure.
+func checkRoleAuthorization(claims jwt.MapClaims, scope string, required []string, matchMode string) bool {
+	if len(required) == 0 {
+		return false
+	}
+	rolesRaw, present := claims[scope]
+	if !present {
+		return false
+	}
+	rolesList, isArray := rolesRaw.([]interface{})
+	if !isArray {
+		return false
+	}
+	held := make(map[string]bool, len(rolesList))
+	for _, item := range rolesList {
+		if role, isString := item.(string); isString {
+			held[role] = true
+		}
+	}
+	if matchMode == "all" {
+		for _, r := range required {
+			if !held[r] {
+				return false
+			}
+		}
+		return true
+	}
+	for _, r := range required {
+		if held[r] {
+			return true
+		}
+	}
+	return false
 }

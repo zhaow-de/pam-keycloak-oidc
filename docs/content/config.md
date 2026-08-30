@@ -35,6 +35,18 @@ issuer-url="https://keycloak.example.com/auth/realms/demo-pam"
 verify-audience=false
 # a key for XOR masking. treat it as a top secret
 xor-key="scmi"
+# Match "any" of the roles below (default) or "all" of them.
+role-match = "any"
+# Reject a login whose password carries no OTP suffix, instead of attempting a
+# password-only bind.
+otp-require = false
+# How many trailing characters of the typed password are the OTP.
+otp-length = "6"
+# A complete regex atom, not a bare escape letter: '\d' for digits,
+# '[a-zA-Z0-9]' for alphanumeric tokens. Use TOML single quotes so the
+# backslash is not an escape.
+otp-class = '\d'
+
 # use only otp code for auth
 otp-only=false
 ```

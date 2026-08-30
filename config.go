@@ -9,6 +9,29 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+// StringOrSlice accepts either a single TOML string or an array of them, so
+// `vpn-user-role = "admin"` and `vpn-user-role = ["admin", "ssh"]` both decode.
+type StringOrSlice []string
+
+// UnmarshalTOML implements toml.Unmarshaler.
+func (s *StringOrSlice) UnmarshalTOML(data interface{}) error {
+	switch v := data.(type) {
+	case string:
+		*s = []string{v}
+	case []interface{}:
+		for _, item := range v {
+			str, ok := item.(string)
+			if !ok {
+				return fmt.Errorf("vpn-user-role: expected a string in the array, got %T", item)
+			}
+			*s = append(*s, str)
+		}
+	default:
+		return fmt.Errorf("vpn-user-role: expected a string or an array, got %T", data)
+	}
+	return nil
+}
+
 // Config holds the OIDC/OAuth2 configuration loaded from a TOML file.
 type Config struct {
 	ClientId                 string            `toml:"client-id"`
@@ -18,13 +41,17 @@ type Config struct {
 	AuthEndpoint             string            `toml:"endpoint-auth-url"`
 	TokenEndpoint            string            `toml:"endpoint-token-url"`
 	UsernameFormat           string            `toml:"username-format"`
-	MandatoryUserRole        string            `toml:"vpn-user-role"`
+	MandatoryUserRole        StringOrSlice     `toml:"vpn-user-role"`
+	RoleMatch                string            `toml:"role-match"`
 	AccessTokenSigningMethod string            `toml:"access-token-signing-method"`
 	JwksUrl                  string            `toml:"jwks-url"`
 	IssuerUrl                string            `toml:"issuer-url"`
 	VerifyAudience           bool              `toml:"verify-audience"`
 	XORKey                   string            `toml:"xor-key"`
 	OTPOnly                  bool              `toml:"otp-only"`
+	OTPRequire               bool              `toml:"otp-require"`
+	OTPLength                string            `toml:"otp-length"`
+	OTPClass                 string            `toml:"otp-class"`
 	ExtraParameters          map[string]string `toml:"extra-parameters"`
 }
 
@@ -60,6 +87,7 @@ func LoadConfigFromFile(configPath string) (*Config, error) {
 		return nil, &ConfigError{Op: "decode", Path: configPath, Err: err}
 	}
 
+	config.ApplyDefaults()
 	return &config, nil
 }
 
@@ -70,6 +98,7 @@ func LoadConfigFromReader(tomlContent string) (*Config, error) {
 	if _, err := toml.Decode(tomlContent, &config); err != nil {
 		return nil, &ConfigError{Op: "decode", Err: err}
 	}
+	config.ApplyDefaults()
 	return &config, nil
 }
 
@@ -91,6 +120,21 @@ func loadConfigWithError() (*Config, error) {
 		return nil, err
 	}
 	return LoadConfigFromFile(configPath)
+}
+
+// ApplyDefaults fills in the optional keys. It deliberately does NOT default
+// xor-key: that value is a secret, and defaulting it to a published constant
+// would be worse than the missing-key error Validate returns.
+func (c *Config) ApplyDefaults() {
+	if c.OTPLength == "" {
+		c.OTPLength = "6"
+	}
+	if c.OTPClass == "" {
+		c.OTPClass = `\d`
+	}
+	if c.RoleMatch == "" {
+		c.RoleMatch = "any"
+	}
 }
 
 // Validate checks that all required configuration fields are set.

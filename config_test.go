@@ -64,8 +64,8 @@ func TestLoadConfigFromReader_ValidConfig(t *testing.T) {
 	if config.Scope != "test_roles" {
 		t.Errorf("Scope = %s; want test_roles", config.Scope)
 	}
-	if config.MandatoryUserRole != "test-vpn-access" {
-		t.Errorf("MandatoryUserRole = %s; want test-vpn-access", config.MandatoryUserRole)
+	if len(config.MandatoryUserRole) != 1 || config.MandatoryUserRole[0] != "test-vpn-access" {
+		t.Errorf("MandatoryUserRole = %v; want [test-vpn-access]", config.MandatoryUserRole)
 	}
 	if config.AuthEndpoint != "https://auth.example.com/auth" {
 		t.Errorf("AuthEndpoint = %s; want https://auth.example.com/auth", config.AuthEndpoint)
@@ -452,5 +452,63 @@ unknown-field="should be ignored"
 
 	if config.ClientId != "test-client" {
 		t.Errorf("ClientId = %s; want test-client", config.ClientId)
+	}
+}
+
+// A bare string and a one-element array must decode identically, so existing
+// configuration files keep working after vpn-user-role became StringOrSlice.
+func TestLoadConfigFromReader_RoleAcceptsStringOrArray(t *testing.T) {
+	single, err := LoadConfigFromReader(`vpn-user-role = "admin"`)
+	if err != nil {
+		t.Fatalf("LoadConfigFromReader returned unexpected error: %v", err)
+	}
+	multi, err := LoadConfigFromReader(`vpn-user-role = ["admin", "ssh"]`)
+	if err != nil {
+		t.Fatalf("LoadConfigFromReader returned unexpected error: %v", err)
+	}
+	if len(single.MandatoryUserRole) != 1 || single.MandatoryUserRole[0] != "admin" {
+		t.Errorf("single = %v; want [admin]", single.MandatoryUserRole)
+	}
+	if len(multi.MandatoryUserRole) != 2 || multi.MandatoryUserRole[1] != "ssh" {
+		t.Errorf("multi = %v; want [admin ssh]", multi.MandatoryUserRole)
+	}
+}
+
+func TestLoadConfigFromReader_RoleRejectsNonString(t *testing.T) {
+	if _, err := LoadConfigFromReader(`vpn-user-role = [1, 2]`); err == nil {
+		t.Errorf("error = nil; want a decode failure for a non-string role")
+	}
+}
+
+// The OTP knobs and role-match must default, or a configuration file written
+// before they existed builds a pattern that matches nothing.
+func TestApplyDefaults_OTPAndRoleMatch(t *testing.T) {
+	config, err := LoadConfigFromReader(`client-id = "x"`)
+	if err != nil {
+		t.Fatalf("LoadConfigFromReader returned unexpected error: %v", err)
+	}
+	if config.OTPLength != "6" {
+		t.Errorf("OTPLength = %q; want 6", config.OTPLength)
+	}
+	if config.OTPClass != `\d` {
+		t.Errorf("OTPClass = %q; want \\d", config.OTPClass)
+	}
+	if config.RoleMatch != "any" {
+		t.Errorf("RoleMatch = %q; want any", config.RoleMatch)
+	}
+}
+
+// xor-key is deliberately NOT defaulted: a published default would be worse than
+// the missing-key error, and an empty key panics encryptDecrypt.
+func TestApplyDefaults_DoesNotInventAnXORKey(t *testing.T) {
+	config, err := LoadConfigFromReader(`client-id = "x"`)
+	if err != nil {
+		t.Fatalf("LoadConfigFromReader returned unexpected error: %v", err)
+	}
+	if config.XORKey != "" {
+		t.Errorf("XORKey = %q; want it left empty for Validate to reject", config.XORKey)
+	}
+	if err = config.Validate(); !errors.Is(err, ErrMissingRequired) {
+		t.Errorf("Validate error = %v; want ErrMissingRequired", err)
 	}
 }

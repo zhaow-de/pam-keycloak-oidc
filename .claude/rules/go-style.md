@@ -56,9 +56,10 @@ Two gates at write time, in order. **Necessity**: a source file is not a story b
 
 ## Traps
 
-- **The generated width and the parsed width are two unrelated literals that happen to agree** — the `digits` const fixes what `calculateOtpToken` GENERATES for the hardcoded-MFA path, while `main()`'s `^(.+)(\d{6})$` fixes what is split off a typed password; changing one leaves the other at 6.
+- **`digits` and `otp-length` are independent knobs** — the `digits` const fixes the width `calculateOtpToken` GENERATES for the encoded-username path, while `otp-length` only says how many characters to split off a typed password; setting `otp-length` does not change what the hardcoded-MFA mode emits.
+- **`otp-class` is a complete regex atom, not an escape letter** — it is concatenated straight into `^(.+)(<class>{<length>})$`, so `\d` and `[a-zA-Z0-9]` are both valid and both must keep working; write it as a TOML literal string or the backslash is eaten by the decoder.
 - **`PAM_USER` reaches the log line unsanitised through the `sid` prefix** — `main.go` flattens newlines out of ERROR text but not out of the username, so a crafted username can still forge log structure; gosec's G706 is suppressed in `.golangci.yml` pointing here, not fixed.
-- **`(*Config).Validate()` is never called from production code** — `main()` runs straight from `loadConfig()` into use, so a check added to `Validate()` is not enforced; an empty `xor-key` instead reaches `encryptDecrypt` and panics on divide-by-zero on every authentication.
+- **`(*Config).Validate()` runs on the authentication path only, after the arg-count dispatch** — the two username utilities must still work on a half-configured box, so a check added to `Validate()` gates logins but not those. `ApplyDefaults` deliberately leaves `xor-key` empty for `Validate` to reject rather than defaulting a secret.
 - **`RedirectUri` and `AccessTokenSigningMethod` are parsed and never read** — the accepted signing algorithm is taken from the token's own `alg` header, so "wiring up" the config field changes security behaviour for every existing deployment.
 - **An `enc`-use JWK must never enter the verification pool** — Keycloak publishes its RSA-OAEP key at the same endpoint as its signing key, and `parseJWKS` skips it; a decode path that stopped honouring `use` would widen what can sign a token.
 - **`config.Scope` is two things at once** — the OAuth2 `scope` request parameter AND the JWT claim key searched for roles; changing it to fix a token request silently changes authorization.

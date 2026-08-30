@@ -9,7 +9,7 @@
 - **A Go panic also exits 2**, colliding with the OAuth2-failure code, and the `// PAM_*` comments beside the `os.Exit` calls name the wrong Linux-PAM constants — under `pam_exec` only zero vs non-zero is consumed, so the numbers are documentation, not behavior.
 - **Access tokens are verified against the IdP's published keys** — `jwks.go` fetches the JWK Set named by `jwks-url`, decodes RSA/EC/Ed25519 keys on the stdlib, and resolves the token's `kid`; `main()` honours `jwt.Parse`'s error and checks `token.Valid`. Every authentication therefore makes a second HTTPS call and fails closed if it cannot.
 - **JWK decoding is hand-rolled on purpose** — `jwks.go` says why: the obvious library pulls three modules and would add the first `// indirect` entries `go.sum` has ever had. Do not swap it for one.
-- MFA modes are hardcoded (TOTP secret encoded into the username), simple (OTP appended to the password and split off by a hardcoded 6-digit regex in `main()`), and OTP-only.
+- MFA modes are hardcoded (TOTP secret encoded into the username), simple (OTP appended to the password and split off by the `otp-class`/`otp-length` regex), and OTP-only; `otp-require` refuses a login that carries no OTP.
 
 ## Repository layout
 
