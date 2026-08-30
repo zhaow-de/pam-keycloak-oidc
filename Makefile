@@ -25,7 +25,7 @@ build: ## Build the binary for the local architecture
 build_all: ## Build the binary for all architectures
 	$(foreach GOOS, $(PLATFORMS),\
 	$(foreach GOARCH, $(ARCHITECTURES),\
-	$(shell export GOOS=$(GOOS); export GOARCH=$(GOARCH); [[ $(GOOS) == "windows" ]] && export EXT=".exe"; go build -v -o $(BINARY).$(GOOS)-$(GOARCH)$${EXT})))
+	$(shell export GOOS=$(GOOS); export GOARCH=$(GOARCH); export CGO_ENABLED=0; [[ $(GOOS) == "windows" ]] && export EXT=".exe"; go build -v -o $(BINARY).$(GOOS)-$(GOARCH)$${EXT})))
 	$(info All compiled!)
 
 # Remove only what we've created

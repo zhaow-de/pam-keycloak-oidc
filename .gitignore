@@ -4,8 +4,10 @@ out/
 vendor/
 tmp/
 
-pam-keycloak-oidc
-pam-keycloak-oidc.*
+# Anchored to the repo root: these are `make` outputs, and unanchored they also
+# swallow packaging/pam-keycloak-oidc.tml.example, which must ship.
+/pam-keycloak-oidc
+/pam-keycloak-oidc.*
 
 ### Claude Code
 
@@ -100,6 +102,7 @@ __pycache__/
 build/
 develop-eggs/
 dist/
+dist-pkg/
 downloads/
 eggs/
 .eggs/
