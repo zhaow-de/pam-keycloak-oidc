@@ -28,7 +28,7 @@ We have to "embed" the OTP code either into the username or the password. This a
 
 ### Simple case
 
-Users could put the 6-digit OTP code right after the real password. For instance, password `SuperSecure` becomes 
+Users could put the 6-digit OTP code right after the real password. For instance, password `SuperSecure` becomes
 `SuperSecure123987` if at the moment the OTP code is `123987`. This is the standard approach, because what's dynamic
 remains dynamic.
 

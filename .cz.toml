@@ -1,0 +1,28 @@
+[tool.commitizen]
+name = "cz_customize"
+version = "1.4.0"
+# The 1.x line used `r$version`; from 2.0.0 the tag is the bare version.
+# `.cz.toml` is per-branch, so a support/1.x branch cut from main keeps the
+# old format and the two tracks never collide.
+tag_format = "$version"
+# semver, so a prerelease is 2.0.0-a0 rather than PEP 440's 2.0.0a0 —
+# GoReleaser parses the former and rejects the latter.
+version_scheme = "semver"
+annotated_tag = true
+version_files = [
+    "README.md:Current version: ",
+    "docs/content/_index.md:Current version: ",
+    "Makefile:^VERSION",
+]
+bump_message = "build(repo): bumped version $current_version → $new_version"
+
+# Bump rules (cz_customize). bump_map keys are matched against bump_pattern's
+# capture group, so the pattern wraps "type(scope)!" in ONE group to make the
+# breaking "!" visible to the "^.+!" key. Note "doc" is singular here — that is
+# this repo's spelling and "docs:" never appears in its history.
+#   MAJOR: "!" suffix or "BREAKING CHANGE"
+#   PATCH: fix, doc, test, chore, claude
+#   MINOR: feat, refactor, build
+[tool.commitizen.customize]
+bump_pattern = "^((?:feat|fix|chore|doc|test|refactor|build|claude)(?:\\(.+\\))?!?|BREAKING[ -]CHANGE)"
+bump_map = {"^.+!" = "MAJOR", "^BREAKING" = "MAJOR", "fix" = "PATCH", "doc" = "PATCH", "test" = "PATCH", "chore" = "PATCH", "claude" = "PATCH", "feat" = "MINOR", "refactor" = "MINOR", "build" = "MINOR"}

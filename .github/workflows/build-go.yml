@@ -2,7 +2,11 @@ name: Build and publish
 on:
   push:
     tags:
+      # The 1.x line is tagged `r<version>`; from 2.0.0 the prefix is dropped.
+      # Only `r*` tags exist on origin today, so the numeric pattern cannot
+      # re-fire anything historical.
       - 'r*'
+      - '[0-9]*'
   workflow_dispatch:
 
 # The release step needs this; the archived actions silently relied on the
@@ -18,6 +22,9 @@ jobs:
       -
         name: Check out the repo
         uses: actions/checkout@v7
+        with:
+          # GoReleaser reads git history to resolve the version.
+          fetch-depth: 0
       -
         name: Setup golang version
         uses: actions/setup-go@v7
@@ -58,6 +65,26 @@ jobs:
           cp pam-keycloak-oidc.windows-arm64.exe dist/pam-keycloak-oidc-arm64.exe
           ls -l dist
       -
+        # `r<version>` is not a version GoReleaser can parse; hand it the
+        # v-prefixed equivalent so nfpm gets a valid package version.
+        name: Derive the package version from the tag
+        run: echo "GORELEASER_CURRENT_TAG=v${GITHUB_REF_NAME#r}" >> "$GITHUB_ENV"
+      -
+        # GoReleaser builds ONLY the RPM/DEB packages (release.disable is set in
+        # .goreleaser.yaml); the six binaries and the release itself stay with the
+        # steps above and below.
+        name: Build the RPM and DEB packages
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          args: release --clean
+      -
+        name: Add the packages to the release assets
+        run: |
+          set -euo pipefail
+          cp dist-pkg/*.rpm dist-pkg/*.deb dist/
+          ls -l dist
+      -
         # Asset names are the basenames staged above and are a public contract
         # (.claude/rules/release.md) — every published release's download URLs
         # already carry them.
@@ -67,7 +94,10 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
           draft: false
-          prerelease: false
+          # A prerelease tag carries a hyphenated suffix (2.0.0-a0); a stable one
+          # never does. Without this an alpha becomes the "Latest release" and
+          # every reader of the install docs downloads it instead of 1.x.
+          prerelease: ${{ contains(github.ref_name, '-') }}
           fail_on_unmatched_files: true
           # Notes are GitHub's own "What's Changed" list, built from the PRs merged
           # since the previous tag — this repo keeps no CHANGELOG.md, so `/release`

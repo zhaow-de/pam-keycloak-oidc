@@ -1,0 +1,42 @@
+# pam-keycloak-oidc configuration.
+#
+# The module reads the file whose path is its own path plus ".tml", so renaming
+# the binary changes which file is read. Keep this at 0600: it holds the client
+# secret.
+#
+# Every key is documented at https://zhaow-de.github.io/pam-keycloak-oidc/config/
+
+# -- Keycloak connection --
+client-id     = "demo-pam"
+client-secret = "CHANGE_ME"
+redirect-url  = "urn:ietf:wg:oauth:2.0:oob"
+
+# OAuth2 scope requested, AND the JWT claim the roles are read from. It must
+# equal the Token Claim Name of the realm-role mapper in Keycloak.
+scope = "pam_roles"
+
+# The role required on this server. Usually the only key that differs between
+# one group of servers and another.
+vpn-user-role = "demo-pam-authentication"
+
+# -- Endpoints; all four come from the realm's .well-known/openid-configuration --
+endpoint-auth-url  = "https://keycloak.example.com/realms/demo-pam/protocol/openid-connect/auth"
+endpoint-token-url = "https://keycloak.example.com/realms/demo-pam/protocol/openid-connect/token"
+jwks-url           = "https://keycloak.example.com/realms/demo-pam/protocol/openid-connect/certs"
+issuer-url         = "https://keycloak.example.com/realms/demo-pam"
+
+# -- Token validation --
+username-format             = "%s"
+access-token-signing-method = "RS256"
+# Turn on only after adding an Audience mapper in Keycloak: a stock access token
+# carries aud="account", and this would reject every login.
+verify-audience = false
+
+# -- Encoded-username mode --
+# Used to encode the TOTP secret into the username. Change it; an empty value
+# makes every authentication fail.
+xor-key = "CHANGE_ME"
+
+# -- OTP --
+# Authenticate with the OTP alone, no password.
+otp-only = false

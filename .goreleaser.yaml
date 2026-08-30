@@ -1,0 +1,108 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+#
+# GoReleaser is used ONLY to build the RPM and DEB packages. The six published
+# binaries and the GitHub release itself come from `make all` plus
+# softprops/action-gh-release in .github/workflows/build-go.yml, and their asset
+# names are a public contract (.claude/rules/release.md) — hence `release.disable`
+# below, and hence `dist: dist-pkg` so this cannot collide with the workflow's
+# own asset staging directory.
+#
+# Release tags here are `r<version>`, which GoReleaser cannot parse as a version.
+# The workflow exports GORELEASER_CURRENT_TAG=v${GITHUB_REF_NAME#r} before
+# invoking it.
+version: 2
+
+dist: dist-pkg
+
+release:
+  disable: true
+
+builds:
+  - id: linux
+    main: .
+    binary: pam-keycloak-oidc
+    env:
+      # A PAM helper runs on hosts whose glibc is not ours. Static linking is
+      # what makes one .rpm work across the RHEL family.
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: '{{ .CommitTimestamp }}'
+    flags:
+      - -trimpath
+    # No `-X main.Version` here: no such variable exists in any .go file, so the
+    # linker would discard it silently (CLAUDE.md records the same trap in the
+    # Makefile). `-s -w` only strips the binary.
+    ldflags:
+      - -s -w
+
+archives:
+  - id: linux
+    ids:
+      - linux
+    formats:
+      - tar.gz
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    files:
+      - src: packaging/pam-keycloak-oidc.tml.example
+      - src: packaging/check-keycloak-health.sh
+
+checksum:
+  disable: true
+
+nfpms:
+  - id: packages
+    ids:
+      - linux
+    package_name: pam-keycloak-oidc
+    file_name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}'
+    formats:
+      - rpm
+      - deb
+    maintainer: 'Zhao Wang <mail@zhaow.de>'
+    homepage: 'https://zhaow-de.github.io/pam-keycloak-oidc/'
+    description: >-
+      PAM module authenticating against Keycloak over OpenID Connect, with
+      TOTP support, JWKS signature verification and role-based authorization.
+    license: MIT
+    bindir: /opt/pam-keycloak-oidc
+
+    rpm:
+      group: System Environment/Base
+
+    contents:
+      # `config|noreplace` is the whole point of packaging: an upgrade must not
+      # overwrite the operator's client-secret. The package ships the template
+      # to this path only on a first install.
+      - src: packaging/pam-keycloak-oidc.tml.example
+        dst: /opt/pam-keycloak-oidc/pam-keycloak-oidc.tml
+        type: 'config|noreplace'
+        file_info:
+          mode: 0600
+
+      # A pristine copy, always refreshed, so an upgrade can be diffed against
+      # the edited config to find keys added since.
+      - src: packaging/pam-keycloak-oidc.tml.example
+        dst: /opt/pam-keycloak-oidc/pam-keycloak-oidc.tml.example
+        file_info:
+          mode: 0644
+
+      # Carries KC_URL / KC_REALM edits.
+      - src: packaging/check-keycloak-health.sh
+        dst: /opt/pam-keycloak-oidc/check-keycloak-health.sh
+        type: 'config|noreplace'
+        file_info:
+          mode: 0755
+
+      # Holds test credentials — root only.
+      - src: packaging/test_token.sh
+        dst: /opt/pam-keycloak-oidc/test_token.sh
+        type: 'config|noreplace'
+        file_info:
+          mode: 0700
+
+    scripts:
+      postinstall: packaging/postinstall.sh

@@ -1,0 +1,21 @@
+# Normalise line endings in the repository. pre-commit's mixed-line-ending hook
+# only protects contributors who ran `pre-commit install`; this covers everyone,
+# and matters most for the shell scripts a package installs and executes — a CRLF
+# shebang makes the kernel fail with a confusing "no such file or directory".
+* text=auto eol=lf
+
+*.go      text eol=lf
+*.md      text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.toml    text eol=lf
+*.tml     text eol=lf
+*.sh      text eol=lf
+Makefile  text eol=lf
+
+*.png     binary
+*.jpg     binary
+*.gif     binary
+*.ico     binary
+*.woff    binary
+*.woff2   binary

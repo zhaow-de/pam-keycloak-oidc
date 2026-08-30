@@ -2,6 +2,8 @@ package main
 
 import (
 	"testing"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 func TestUsername(t *testing.T) {
@@ -218,5 +220,47 @@ func TestCalculateOtpToken_DifferentTimestamps(t *testing.T) {
 	// While not guaranteed to be different, in practice they should be
 	if result1 == result2 && result2 == result3 {
 		t.Log("Warning: All three OTP tokens are the same (statistically unlikely)")
+	}
+}
+
+func rolesClaim(roles ...interface{}) jwt.MapClaims {
+	return jwt.MapClaims{"pam_roles": roles}
+}
+
+func TestCheckRoleAuthorization_AnyMatchesOne(t *testing.T) {
+	if !checkRoleAuthorization(rolesClaim("ssh", "other"), "pam_roles", []string{"admin", "ssh"}, "any") {
+		t.Errorf("got false; want true when one required role is held")
+	}
+}
+
+func TestCheckRoleAuthorization_AnyRejectsNone(t *testing.T) {
+	if checkRoleAuthorization(rolesClaim("other"), "pam_roles", []string{"admin", "ssh"}, "any") {
+		t.Errorf("got true; want false when no required role is held")
+	}
+}
+
+func TestCheckRoleAuthorization_AllNeedsEvery(t *testing.T) {
+	if !checkRoleAuthorization(rolesClaim("admin", "ssh"), "pam_roles", []string{"admin", "ssh"}, "all") {
+		t.Errorf("got false; want true when every required role is held")
+	}
+	if checkRoleAuthorization(rolesClaim("admin"), "pam_roles", []string{"admin", "ssh"}, "all") {
+		t.Errorf("got true; want false when one required role is missing")
+	}
+}
+
+// The claim used to be asserted unchecked, so a non-array claim panicked and the
+// panic exited 2 — the same code as an OAuth2 failure.
+func TestCheckRoleAuthorization_NonArrayClaimDoesNotPanic(t *testing.T) {
+	if checkRoleAuthorization(jwt.MapClaims{"pam_roles": "admin"}, "pam_roles", []string{"admin"}, "any") {
+		t.Errorf("got true; want false for a claim that is a string, not an array")
+	}
+}
+
+func TestCheckRoleAuthorization_MissingClaimOrEmptyRequirement(t *testing.T) {
+	if checkRoleAuthorization(jwt.MapClaims{}, "pam_roles", []string{"admin"}, "any") {
+		t.Errorf("got true; want false when the claim is absent")
+	}
+	if checkRoleAuthorization(rolesClaim("admin"), "pam_roles", nil, "any") {
+		t.Errorf("got true; want false when no role is required — never authorize by default")
 	}
 }

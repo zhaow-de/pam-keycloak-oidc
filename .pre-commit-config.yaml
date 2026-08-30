@@ -1,0 +1,72 @@
+# The commit gate. No workflow runs on a pull request in this repo (CLAUDE.md),
+# so these hooks are the only mechanical check any change ever gets.
+exclude: '^doc/(themes|public|resources)/'
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-merge-conflict
+      - id: check-shebang-scripts-are-executable
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+      - id: trailing-whitespace
+
+  # Local (language: system) so there is ONE Go toolchain: the one pinned in
+  # go.mod, which `actions/setup-go` matches exactly. A pre-commit-managed copy
+  # would be a second pin that drifts from go.mod without anything noticing.
+  - repo: local
+    hooks:
+      - id: go-fmt
+        name: gofmt
+        entry: gofmt -l -w
+        language: system
+        types: [go]
+
+      - id: go-vet
+        name: go vet
+        entry: go vet ./...
+        language: system
+        always_run: true
+        pass_filenames: false
+
+      - id: go-build
+        name: go build
+        entry: go build ./...
+        language: system
+        always_run: true
+        pass_filenames: false
+
+      # The repo's only test gate. Fast enough (<1s) to run on every commit.
+      - id: go-test
+        name: go test
+        entry: go test ./...
+        language: system
+        always_run: true
+        pass_filenames: false
+
+      # Local for the same reason as the hooks above, and additionally because a
+      # pre-commit-managed golangci-lint is prebuilt against whatever Go its
+      # release used: v2.13.2 ships built with go1.26 and refuses a go.mod
+      # targeting 1.27.0. Install with:
+      #   go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+      - id: golangci-lint
+        name: golangci-lint
+        entry: bash -c 'export PATH="$(go env GOPATH)/bin:$PATH"; exec golangci-lint run --config .golangci.yml ./...'
+        language: system
+        always_run: true
+        pass_filenames: false
+
+      # Enforcement for .claude/rules/commit-messages.md's claude-kind rule.
+      - id: staged-kind
+        name: claude-kind files not mixed with other kinds
+        entry: bash scripts/staged-kind-check.sh
+        language: system
+        pass_filenames: false
+        always_run: true

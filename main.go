@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"net/http"
 	"net/url"
 	"os"
-	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -116,6 +116,12 @@ func main() {
 			"'. Your TOTP token for now is: '" + calculateOtpToken(secret, time.Now().Unix()) + "'.")
 		return
 	}
+	//
+	// Only the authentication path needs a complete config; the two username
+	// utilities above run on a half-configured box on purpose.
+	if err := config.Validate(); err != nil {
+		log.Fatal("Configuration is incomplete: ", err)
+	}
 	var inputEnv, inputStdio string
 	//
 	// Extract username, password, and otpCode
@@ -132,21 +138,32 @@ func main() {
 		otpCode = calculateOtpToken(otpSecret, time.Now().Unix())
 		password = inputStdio
 	} else {
-		// regular user detected, who should have the OTP code as the last 6 digits of the password
+		// regular user detected, whose OTP is the tail of what they typed.
 		username = inputEnv
-		var passwordPattern = regexp.MustCompile(`^(.+)(\d{6})$`)
+		//
+		// otp-class is a complete regex atom, not a bare escape letter: `\d` and
+		// `[a-zA-Z0-9]` are both valid. Compile, never MustCompile — a bad class
+		// in a config file must not panic the auth path.
+		passwordPattern, err := regexp.Compile(`^(.+)(` + config.OTPClass + `{` + config.OTPLength + `})$`)
+		if err != nil {
+			log.Fatal("Invalid otp-class/otp-length: ", err)
+		}
 		match := passwordPattern.FindStringSubmatch(inputStdio)
 		if match != nil {
 			password = match[1]
 			otpCode = match[2]
+		} else if config.OTPOnly {
+			password = "_"
+			otpCode = inputStdio
+		} else if config.OTPRequire {
+			// Refuse rather than silently attempting a password-only bind.
+			password = inputStdio
+			otpCode = ""
+			log.Println("Rejected: otp-require is set and no OTP was appended to the password")
+			os.Exit(11)
 		} else {
-			if config.OTPOnly {
-				password = "_"
-				otpCode = inputStdio
-			} else {
-				password = inputStdio
-				otpCode = ""
-			}
+			password = inputStdio
+			otpCode = ""
 		}
 	}
 	sid := fmt.Sprintf("[%s]-(%s) ", uuid.New().String(), username)
@@ -186,38 +203,92 @@ func main() {
 		os.Exit(2)
 	}
 
-	token, _ := jwt.Parse(accessToken, func(token *jwt.Token) (interface{}, error) {
-		// important to validate the `alg` presented is what we expected, according to:
-		// https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/
-		if strings.HasPrefix(token.Header["alg"].(string), "RS") {
-		    if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			    log.Fatal(sid, "Unexpected signing method: ", token.Header["alg"])
-		    }
-		} else if strings.HasPrefix(token.Header["alg"].(string), "ES") {
-		    if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
-			    log.Fatal(sid, "Unexpected signing method: ", token.Header["alg"])
-		    }
-        } else if _, ok := token.Method.(*jwt.SigningMethodEd25519); !ok {
-			    log.Fatal(sid, "Unexpected signing method: ", token.Header["alg"])
-		}
-		return token, nil
-	})
-	if token == nil {
-		log.Fatal(sid, "Encountered invalid JWT token but golang.org/x/oauth2 was okay with it")
+	//
+	// Verify the access token against the keys the IdP publishes. Until this landed,
+	// jwt.Parse's error was discarded and token.Valid was never read, so ANY signature
+	// was accepted; the alg header was the only thing inspected.
+	jwksBody, err := fetchJWKS(config.JwksUrl, &http.Client{Timeout: 10 * time.Second})
+	if err != nil {
+		log.Print(sid, "JWKS unavailable: ", strings.ReplaceAll(err.Error(), "\n", ". "))
+		os.Exit(4)
 	}
-	// with dgrijalva/jwt-go we must not verify token.Valid because of a bug, the library requires the SSL certificate
-	// start with ----BEGIN, but it should be -----BEGIN. that's why the verification is always invalid.
-	if claims := token.Claims.(jwt.MapClaims); claims != nil {
-		if roles, ok := claims[config.Scope]; ok {
-			for _, item := range roles.([]interface{}) {
-				if reflect.ValueOf(item).Kind() == reflect.String && item == config.MandatoryUserRole {
-					log.Print(sid, "Authentication succeeded")
-					os.Exit(0)
-				}
-			}
-		}
+	signingKeys, err := parseJWKS(jwksBody)
+	if err != nil {
+		log.Print(sid, "JWKS unusable: ", strings.ReplaceAll(err.Error(), "\n", ". "))
+		os.Exit(4)
 	}
 
-	log.Print(sid, "Authentication was successful but authorization failed")
+	parserOptions := []jwt.ParserOption{jwt.WithExpirationRequired()}
+	if config.IssuerUrl != "" {
+		parserOptions = append(parserOptions, jwt.WithIssuer(config.IssuerUrl))
+	}
+	//
+	// Opt-in: a stock Keycloak access token carries aud:["account"], not the client id,
+	// unless an Audience mapper is configured — verifying it by default would lock every
+	// existing deployment out on upgrade.
+	if config.VerifyAudience {
+		parserOptions = append(parserOptions, jwt.WithAudience(config.ClientId))
+	}
+
+	token, err := jwt.Parse(accessToken, newJWKSKeyfunc(signingKeys), parserOptions...)
+	if err != nil {
+		log.Print(sid, "Access token failed verification: ", strings.ReplaceAll(err.Error(), "\n", ". "))
+		os.Exit(2)
+	}
+	if !token.Valid {
+		log.Print(sid, "Access token is not valid")
+		os.Exit(2)
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		log.Print(sid, "Access token claims are not a JSON object")
+		os.Exit(2)
+	}
+	if checkRoleAuthorization(claims, config.Scope, config.MandatoryUserRole, config.RoleMatch) {
+		log.Print(sid, "Authentication succeeded")
+		os.Exit(0)
+	}
+
 	os.Exit(7) // PAM_PERM_DENIED
+}
+
+// checkRoleAuthorization reports whether the token's role claim satisfies the
+// configured requirement: "all" needs every listed role, anything else needs one.
+//
+// The claim is asserted with a checked type assertion on purpose. An IdP that
+// publishes the claim as anything but an array of strings used to panic here, and
+// a Go panic exits 2 — indistinguishable from an OAuth2 failure.
+func checkRoleAuthorization(claims jwt.MapClaims, scope string, required []string, matchMode string) bool {
+	if len(required) == 0 {
+		return false
+	}
+	rolesRaw, present := claims[scope]
+	if !present {
+		return false
+	}
+	rolesList, isArray := rolesRaw.([]interface{})
+	if !isArray {
+		return false
+	}
+	held := make(map[string]bool, len(rolesList))
+	for _, item := range rolesList {
+		if role, isString := item.(string); isString {
+			held[role] = true
+		}
+	}
+	if matchMode == "all" {
+		for _, r := range required {
+			if !held[r] {
+				return false
+			}
+		}
+		return true
+	}
+	for _, r := range required {
+		if held[r] {
+			return true
+		}
+	}
+	return false
 }

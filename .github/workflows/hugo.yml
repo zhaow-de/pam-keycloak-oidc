@@ -3,12 +3,22 @@ name: Deploy documentation to Pages
 on:
   push:
     branches:
+      # Two documentation versions are published from one artifact: `main` at the
+      # site root, `develop` at /v2/. A push to either rebuilds BOTH, because
+      # Pages replaces the whole site on every deploy and a partial upload would
+      # delete the other version.
       - main
-    # Nothing outside doc/ feeds the site build, so a code-only push to main no
-    # longer redeploys Pages. The workflow file is listed too, or a HUGO_VERSION
-    # bump would never reach the published site. workflow_dispatch ignores
-    # `paths`, so it stays the manual escape hatch.
+      - develop
+    # Nothing outside the documentation tree feeds the site build, so a code-only
+    # push no longer redeploys Pages. Both spellings are listed because `main`
+    # still carries `doc/` until the 2.0.0 rename reaches it, and a theme bump
+    # there is a change to `doc/themes/hugo-book` that `docs/**` would not match.
+    # `**` crosses `/`, so each pattern already covers the submodule gitlink.
+    # The workflow file is listed too, or a HUGO_VERSION bump would never reach
+    # the published site. workflow_dispatch ignores `paths`, so it stays the
+    # manual escape hatch.
     paths:
+      - 'docs/**'
       - 'doc/**'
       - '.github/workflows/hugo.yml'
   workflow_dispatch:
@@ -40,31 +50,65 @@ jobs:
           && sudo dpkg -i ${{ runner.temp }}/hugo.deb
       - name: Install Dart Sass
         run: sudo snap install dart-sass
-      - name: Checkout
+      - name: Check out the stable branch
         uses: actions/checkout@v7
         with:
+          ref: main
           submodules: recursive
           fetch-depth: 0
+          path: stable
+      - name: Check out the next branch
+        uses: actions/checkout@v7
+        with:
+          ref: develop
+          submodules: recursive
+          fetch-depth: 0
+          path: next
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v6
-      - name: Install Node.js dependencies
-        run: "[[ -f package-lock.json || -f npm-shrinkwrap.json ]] && npm ci || true"
-      - name: Build with Hugo
+      - name: Build the 1.x documentation at /v1/
+        env:
+          HUGO_CACHEDIR: ${{ runner.temp }}/hugo_cache
+          HUGO_ENVIRONMENT: production
+          HUGO_PARAMS_VERSIONCURRENT: 1.x (stable)
+          TZ: Europe/Berlin
+        run: |
+          # `main` carries `doc/` until the 2.0.0 release lands the rename there,
+          # so resolve either name rather than breaking during the transition.
+          src=stable/docs
+          [ -d "$src" ] || src=stable/doc
+          cd "$src"
+          hugo --gc --minify \
+            --baseURL "${{ steps.pages.outputs.base_url }}/v1/" \
+            -d "$GITHUB_WORKSPACE/site/v1"
+      - name: Build the newest documentation at the site root
         env:
           HUGO_CACHEDIR: ${{ runner.temp }}/hugo_cache
           HUGO_ENVIRONMENT: production
           TZ: Europe/Berlin
         run: |
-          cd doc \
-          && hugo \
-            --gc \
-            --minify \
-            --baseURL "${{ steps.pages.outputs.base_url }}/"
+          # The root always serves the NEWEST version, so a visitor who specifies
+          # no version gets current docs. That is `develop` once it carries the
+          # 2.x tree; until then the newest published version is still 1.x, and
+          # `main` serves the root so the site is never empty.
+          if [ -d next/docs ]; then
+            src=next/docs
+            export HUGO_PARAMS_VERSIONCURRENT='2.x (alpha)'
+          else
+            src=stable/docs
+            [ -d "$src" ] || src=stable/doc
+            export HUGO_PARAMS_VERSIONCURRENT='1.x (stable)'
+            echo "root: develop has no docs/ yet — serving 1.x at the root"
+          fi
+          cd "$src"
+          hugo --gc --minify \
+            --baseURL "${{ steps.pages.outputs.base_url }}/" \
+            -d "$GITHUB_WORKSPACE/site"
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: ./doc/public
+          path: ./site
 
   deploy:
     environment:

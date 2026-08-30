@@ -99,7 +99,7 @@ func TestEncryptDecrypt_SingleByte(t *testing.T) {
 func TestEncryptDecrypt_LongInputShortKey(t *testing.T) {
 	// Test that XOR key cycles correctly over long input
 	input := []byte("ABCDEFGHIJKLMNOP") // 16 bytes
-	key := "xy"                          // 2 byte key, should cycle 8 times
+	key := "xy"                         // 2 byte key, should cycle 8 times
 	encoded := encryptDecrypt(input, key)
 	decoded := encryptDecrypt(encoded, key)
 	if string(decoded) != string(input) {

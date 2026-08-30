@@ -1,0 +1,33 @@
+{{/* Unreleased-version banner.
+
+     Shown on every page of a build whose current version is flagged
+     `prerelease` in the versions list. The flag lives beside the version's own
+     entry in hugo.toml rather than in a second parameter, so the label, the URL
+     and the prerelease status cannot drift apart.
+
+     The colours are inline and alpha-blended because the theme styles only a
+     generic `book-hint` and provides no variant for a warning; an alpha
+     background over the page's own colour reads correctly in both the light and
+     the dark theme. */}}
+{{ $current := site.Params.versionCurrent }}
+{{ $isPrerelease := false }}
+{{ $stableURL := "" }}
+{{ $stableLabel := "" }}
+{{ range site.Params.versions }}
+  {{ if eq .label $current }}
+    {{ $isPrerelease = .prerelease }}
+  {{ end }}
+  {{ if not .prerelease }}
+    {{ $stableURL = .url }}
+    {{ $stableLabel = .label }}
+  {{ end }}
+{{ end }}
+{{ if $isPrerelease }}
+<div style="border-left:4px solid #d29922;background:rgba(210,153,34,.12);padding:.75rem 1rem;margin:0 0 1.5rem;border-radius:3px">
+  <strong>This documents {{ $current }}, which is not released yet.</strong>
+  Anything here may change before release, and the downloads it points at are prereleases — do not deploy them to a machine you need.
+  {{ with $stableURL }}
+    The current stable documentation is <a href="{{ . }}">{{ $stableLabel }}</a>.
+  {{ end }}
+</div>
+{{ end }}

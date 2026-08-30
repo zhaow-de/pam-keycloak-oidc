@@ -780,10 +780,10 @@ func TestNewTokenRequest_EmptyValues(t *testing.T) {
 
 func TestNewTokenRequest_SpecialCharsInValues(t *testing.T) {
 	values := url.Values{
-		"password":  {"p@ss=word&special"},
-		"username":  {"user+name@domain.com"},
-		"scope":     {"scope with spaces"},
-		"redirect":  {"https://example.com/callback?foo=bar&baz=qux"},
+		"password": {"p@ss=word&special"},
+		"username": {"user+name@domain.com"},
+		"scope":    {"scope with spaces"},
+		"redirect": {"https://example.com/callback?foo=bar&baz=qux"},
 	}
 
 	req, err := newTokenRequest("https://example.com/token", "client", "secret", values)

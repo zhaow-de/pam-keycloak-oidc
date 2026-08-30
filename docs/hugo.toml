@@ -1,0 +1,35 @@
+baseURL = 'https://zhaow-de.github.io/pam-keycloak-oidc/'
+languageCode = 'en-us'
+title = 'pam-keycloak-oidc'
+theme = "hugo-book"
+
+enableGitInfo = false
+
+
+[params]
+  BookTheme = 'auto'
+  # Overridden per build by the Pages workflow (HUGO_PARAMS_VERSIONCURRENT), so
+  # this default only applies to a local `hugo server`.
+  versionCurrent = '2.x (alpha)'
+  BookToC = true
+  BookComments = false
+  BookSection = "/"
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+
+# Array-of-tables must come after the scalar params above: any `key = value`
+# written below one of these belongs to it, not to [params].
+# The newest version is served at the site root, so a visitor who specifies no
+# version lands on current documentation; older lines get a /vN/ prefix.
+[[params.versions]]
+  label = '2.x (alpha)'
+  url = 'https://zhaow-de.github.io/pam-keycloak-oidc/'
+  # Drives the unreleased-version banner; see layouts/_partials/docs/inject/.
+  prerelease = true
+
+[[params.versions]]
+  label = '1.x (stable)'
+  url = 'https://zhaow-de.github.io/pam-keycloak-oidc/v1/'
