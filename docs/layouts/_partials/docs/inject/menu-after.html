@@ -6,9 +6,13 @@
      branches and the label cannot drift from the branch it was built from.
 
      The URLs are absolute on purpose: a root-relative link would resolve against
-     the /v2/ baseURL and never reach the stable site. */}}
+     the /v2/ baseURL and never reach the stable site.
+
+     Do NOT give this block the theme's `book-menu-content` class: that class is
+     `position: fixed; top: 0`, so a second element carrying it is pinned to the
+     viewport and lands on top of the search box. */}}
 {{ with site.Params.versions }}
-<div class="book-menu-content" style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid rgba(134,144,156,.3)">
+<div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid rgba(134,144,156,.3)">
   <strong>Version</strong>
   <ul>
     {{ range . }}
