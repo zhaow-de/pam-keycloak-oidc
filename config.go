@@ -20,6 +20,9 @@ type Config struct {
 	UsernameFormat           string            `toml:"username-format"`
 	MandatoryUserRole        string            `toml:"vpn-user-role"`
 	AccessTokenSigningMethod string            `toml:"access-token-signing-method"`
+	JwksUrl                  string            `toml:"jwks-url"`
+	IssuerUrl                string            `toml:"issuer-url"`
+	VerifyAudience           bool              `toml:"verify-audience"`
 	XORKey                   string            `toml:"xor-key"`
 	OTPOnly                  bool              `toml:"otp-only"`
 	ExtraParameters          map[string]string `toml:"extra-parameters"`

@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"net/http"
 	"net/url"
 	"os"
-	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -186,38 +186,64 @@ func main() {
 		os.Exit(2)
 	}
 
-	token, _ := jwt.Parse(accessToken, func(token *jwt.Token) (interface{}, error) {
-		// important to validate the `alg` presented is what we expected, according to:
-		// https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/
-		if strings.HasPrefix(token.Header["alg"].(string), "RS") {
-			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-				log.Fatal(sid, "Unexpected signing method: ", token.Header["alg"])
-			}
-		} else if strings.HasPrefix(token.Header["alg"].(string), "ES") {
-			if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
-				log.Fatal(sid, "Unexpected signing method: ", token.Header["alg"])
-			}
-		} else if _, ok := token.Method.(*jwt.SigningMethodEd25519); !ok {
-			log.Fatal(sid, "Unexpected signing method: ", token.Header["alg"])
-		}
-		return token, nil
-	})
-	if token == nil {
-		log.Fatal(sid, "Encountered invalid JWT token but golang.org/x/oauth2 was okay with it")
+	//
+	// Verify the access token against the keys the IdP publishes. Until this landed,
+	// jwt.Parse's error was discarded and token.Valid was never read, so ANY signature
+	// was accepted; the alg header was the only thing inspected.
+	jwksBody, err := fetchJWKS(config.JwksUrl, &http.Client{Timeout: 10 * time.Second})
+	if err != nil {
+		log.Print(sid, "JWKS unavailable: ", strings.ReplaceAll(err.Error(), "\n", ". "))
+		os.Exit(4)
 	}
-	// with dgrijalva/jwt-go we must not verify token.Valid because of a bug, the library requires the SSL certificate
-	// start with ----BEGIN, but it should be -----BEGIN. that's why the verification is always invalid.
-	if claims := token.Claims.(jwt.MapClaims); claims != nil {
-		if roles, ok := claims[config.Scope]; ok {
-			for _, item := range roles.([]interface{}) {
-				if reflect.ValueOf(item).Kind() == reflect.String && item == config.MandatoryUserRole {
+	signingKeys, err := parseJWKS(jwksBody)
+	if err != nil {
+		log.Print(sid, "JWKS unusable: ", strings.ReplaceAll(err.Error(), "\n", ". "))
+		os.Exit(4)
+	}
+
+	parserOptions := []jwt.ParserOption{jwt.WithExpirationRequired()}
+	if config.IssuerUrl != "" {
+		parserOptions = append(parserOptions, jwt.WithIssuer(config.IssuerUrl))
+	}
+	//
+	// Opt-in: a stock Keycloak access token carries aud:["account"], not the client id,
+	// unless an Audience mapper is configured — verifying it by default would lock every
+	// existing deployment out on upgrade.
+	if config.VerifyAudience {
+		parserOptions = append(parserOptions, jwt.WithAudience(config.ClientId))
+	}
+
+	token, err := jwt.Parse(accessToken, newJWKSKeyfunc(signingKeys), parserOptions...)
+	if err != nil {
+		log.Print(sid, "Access token failed verification: ", strings.ReplaceAll(err.Error(), "\n", ". "))
+		os.Exit(2)
+	}
+	if !token.Valid {
+		log.Print(sid, "Access token is not valid")
+		os.Exit(2)
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		log.Print(sid, "Access token claims are not a JSON object")
+		os.Exit(2)
+	}
+	if roles, present := claims[config.Scope]; present {
+		//
+		// Checked assertion: an IdP that publishes the roles claim as anything but an
+		// array used to panic here, and a Go panic exits 2 — indistinguishable from an
+		// OAuth2 failure.
+		if list, isArray := roles.([]interface{}); isArray {
+			for _, item := range list {
+				if role, isString := item.(string); isString && role == config.MandatoryUserRole {
 					log.Print(sid, "Authentication succeeded")
 					os.Exit(0)
 				}
 			}
+		} else {
+			log.Print(sid, "Claim ", config.Scope, " is not an array of roles")
 		}
 	}
 
-	log.Print(sid, "Authentication was successful but authorization failed")
 	os.Exit(7) // PAM_PERM_DENIED
 }

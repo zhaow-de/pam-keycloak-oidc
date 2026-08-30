@@ -25,6 +25,14 @@ endpoint-token-url="https://keycloak.example.com/auth/realms/demo-pam/protocol/o
 username-format="%s"
 # to be the same as the particular Keycloak client
 access-token-signing-method="RS256"
+# JWK Set endpoint, used to verify the access token's signature. From the same
+# meta-data document as the two endpoints above.
+jwks-url="https://keycloak.example.com/auth/realms/demo-pam/protocol/openid-connect/certs"
+# expected `iss` claim; leave empty to skip the issuer check
+issuer-url="https://keycloak.example.com/auth/realms/demo-pam"
+# verify the `aud` claim equals client-id. Keycloak only puts the client id in `aud`
+# when an Audience mapper is configured, so this stays off unless you added one.
+verify-audience=false
 # a key for XOR masking. treat it as a top secret
 xor-key="scmi"
 # use only otp code for auth
