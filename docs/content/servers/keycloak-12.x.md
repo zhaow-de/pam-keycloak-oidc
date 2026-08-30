@@ -1,3 +1,11 @@
+---
+title: "Keycloak 12.x"
+# The page shipped for years at the misspelled path; the alias keeps every
+# published link and bookmark resolving after the rename.
+aliases:
+  - /servers/keyclock-12.x/
+---
+
 # Keycloak 12.x
 
 1.  Create a new Role at Keycloak, e.g. `demo-pam-authentication`. (Assuming the server is at

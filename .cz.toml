@@ -5,7 +5,7 @@ tag_format = "r$version"
 annotated_tag = true
 version_files = [
     "README.md:Current version: ",
-    "doc/content/_index.md:Current version: ",
+    "docs/content/_index.md:Current version: ",
     "Makefile:^VERSION",
 ]
 bump_message = "build(repo): bumped version $current_version → $new_version"

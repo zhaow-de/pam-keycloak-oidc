@@ -98,14 +98,14 @@ The tag push fires `.github/workflows/build-go.yml`, which builds the six binari
    ```bash
    NEW_VERSION=$(cz version --project)
    README_VERSION=$(grep -oE 'Current version: \*\*[0-9]+\.[0-9]+\.[0-9]+\*\*' README.md | head -1 | sed -E 's/.*\*\*(.*)\*\*/\1/')
-   DOC_VERSION=$(grep -oE 'Current version: \*\*[0-9]+\.[0-9]+\.[0-9]+\*\*' doc/content/_index.md | head -1 | sed -E 's/.*\*\*(.*)\*\*/\1/')
+   DOC_VERSION=$(grep -oE 'Current version: \*\*[0-9]+\.[0-9]+\.[0-9]+\*\*' docs/content/_index.md | head -1 | sed -E 's/.*\*\*(.*)\*\*/\1/')
    MAKE_VERSION=$(grep -E '^VERSION=' Makefile | head -1 | sed -E 's/^VERSION=//')
 
    if [ "$README_VERSION" != "$NEW_VERSION" ] || [ "$DOC_VERSION" != "$NEW_VERSION" ] || [ "$MAKE_VERSION" != "$NEW_VERSION" ]; then
        echo "ERROR: cz bump skipped one or more version_files"
        echo "  cz says:              $NEW_VERSION"
        echo "  README.md:            $README_VERSION"
-       echo "  doc/content/_index.md: $DOC_VERSION"
+       echo "  docs/content/_index.md: $DOC_VERSION"
        echo "  Makefile:             $MAKE_VERSION"
        exit 1
    fi
@@ -158,7 +158,7 @@ The tag push fires `.github/workflows/build-go.yml`, which builds the six binari
     Six assets are expected. Report and stop on any other conclusion, on fewer assets, or if the release is missing.
     Recover a failed build with `gh run rerun <databaseId> --failed`, which re-runs against the tag ref; `.claude/rules/release.md` says why a `workflow_dispatch` must never be used instead.
 
-    The `main` push also redeploys the docs site, because the bump rewrites `doc/content/_index.md` and `hugo.yml` filters pushes on `doc/**`. Confirm that run too:
+    The `main` push also redeploys the docs site, because the bump rewrites `docs/content/_index.md` and `hugo.yml` filters pushes on `docs/**`. Confirm that run too:
 
     ```bash
     gh run list --workflow hugo.yml --branch main --limit 1 --json headSha,status,conclusion,url

@@ -18,8 +18,8 @@ Flat `package main` at the **repo root** — no subpackages, no `internal/`, no 
 - `config.go` / `config_test.go` — the TOML `Config`, `ConfigError`, `ErrMissingRequired`, `LoadConfigFromFile`, `LoadConfigFromReader`.
 - `oauth2ex.go` / `oauth2ex_test.go` — a tailored fork of `golang.org/x/oauth2`'s password grant, adding the `totp` form parameter and `extra-parameters`.
 - `utils.go` / `utils_test.go` — XOR, ASCII85 and Base32 helpers.
-- `doc/` — the Hugo site, the only user-facing documentation; `README.md` is a deliberate stub. `doc/themes/hugo-book` is a pinned git submodule and the site will not build without it.
-- `.github/workflows/` — `build-go.yml` (fires on `r*` tag pushes) and `hugo.yml` (fires on pushes to `main` that touch `doc/**` or the workflow itself). **Neither is triggered by a pull request or by a push to a feature branch** — only a manual `workflow_dispatch` reaches either from one, which `release.md` forbids for `build-go.yml`.
+- `docs/` — the Hugo site, the only user-facing documentation; `README.md` is a deliberate stub. `docs/themes/hugo-book` is a pinned git submodule and the site will not build without it.
+- `.github/workflows/` — `build-go.yml` (fires on `r*` tag pushes) and `hugo.yml` (fires on pushes to `main` that touch `docs/**` or the workflow itself). **Neither is triggered by a pull request or by a push to a feature branch** — only a manual `workflow_dispatch` reaches either from one, which `release.md` forbids for `build-go.yml`.
 - `.claude/rules/` — repo-specific rules, and `.claude/skills/` the executable procedures they route to; see Conventions.
 - `scripts/` — hooks invoked by `.pre-commit-config.yaml`, nothing else.
 - **Ignored root files that look authoritative are not** — `cover.out` is a stale local artifact (regenerate it, never quote it), `out/` is local scratch, `pam-keycloak-oidc*` are build outputs.
@@ -63,7 +63,7 @@ The test: every changed line traces directly to the user's request.
 **"Merged" is not "done." Done is "it works and we can tell."**
 
 - Turn vague tasks into verifiable goals: a failing test that reproduces the bug then passes; tests pass identically before/after a refactor; a real flow completes end-to-end.
-- Confirm it's observable: the `log` lines an operator greps, checked by hand as `doc/content/install.md` describes; there is no telemetry here.
+- Confirm it's observable: the `log` lines an operator greps, checked by hand as `docs/content/install.md` describes; there is no telemetry here.
 - For multi-step work, state a brief plan as `step → verify` lines.
 
 ## Tooling

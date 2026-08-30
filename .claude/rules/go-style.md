@@ -29,7 +29,7 @@ Two gates at write time, in order. **Necessity**: a source file is not a story b
 
 - **Every log line on the authentication path passes `sid` as its first argument** — the correlation prefix is built once per attempt in `main.go` and is what ties an operator's grep to one login.
 - **Flatten multi-line errors with `strings.ReplaceAll(err.Error(), "\n", ". ")` before logging** — one authentication attempt must stay one log line.
-- **Never reword a log message the docs tell operators to grep for** — `doc/content/install.md` sends them looking for `"...(test1) Authentication succeeded"`, so that text is an interface, not prose.
+- **Never reword a log message the docs tell operators to grep for** — `docs/content/install.md` sends them looking for `"...(test1) Authentication succeeded"`, so that text is an interface, not prose.
 - **Use the stdlib `log` package** — no structured-logging dependency.
 
 ## Dependencies

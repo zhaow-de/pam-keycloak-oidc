@@ -3,7 +3,7 @@
 Releases are cut with **commitizen** (`cz`, configured in `.cz.toml`). See `branch-workflow.md` for the branch model this sits on.
 
 - **HOW to cut one is the `release` skill** (`.claude/skills/release/SKILL.md`) — tag reconciliation, the `release/<x.y.z>` branch, the gate, the bump, the two merges, the pushes, and confirming `build-go.yml` published; load it rather than reassembling the steps.
-- **Never hand-edit a version string.** `cz bump` rewrites `.cz.toml`, `README.md`, `doc/content/_index.md` and `Makefile` in one commit; editing one and missing another silently desynchronises the docs from the build.
+- **Never hand-edit a version string.** `cz bump` rewrites `.cz.toml`, `README.md`, `docs/content/_index.md` and `Makefile` in one commit; editing one and missing another silently desynchronises the docs from the build.
 - **A new file carrying the version joins `version_files` in `.cz.toml` in the same change that introduces it** — otherwise it is left behind at the next bump and nothing reports it.
 - **Release tags are `r<version>`** (`tag_format`) — `.github/workflows/build-go.yml` triggers on `r*` alone, so a `v`-prefixed or bare-numeric tag publishes nothing and raises no error anywhere.
 - **Tags are annotated** (`annotated_tag = true`), matching every existing release tag.
