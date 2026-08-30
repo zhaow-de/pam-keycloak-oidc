@@ -9,12 +9,17 @@ on:
       # delete the other version.
       - main
       - develop
-    # Nothing outside docs/ feeds the site build, so a code-only push no longer
-    # redeploys Pages. The workflow file is listed too, or a HUGO_VERSION bump
-    # would never reach the published site. workflow_dispatch ignores `paths`,
-    # so it stays the manual escape hatch.
+    # Nothing outside the documentation tree feeds the site build, so a code-only
+    # push no longer redeploys Pages. Both spellings are listed because `main`
+    # still carries `doc/` until the 2.0.0 rename reaches it, and a theme bump
+    # there is a change to `doc/themes/hugo-book` that `docs/**` would not match.
+    # `**` crosses `/`, so each pattern already covers the submodule gitlink.
+    # The workflow file is listed too, or a HUGO_VERSION bump would never reach
+    # the published site. workflow_dispatch ignores `paths`, so it stays the
+    # manual escape hatch.
     paths:
       - 'docs/**'
+      - 'doc/**'
       - '.github/workflows/hugo.yml'
   workflow_dispatch:
 
