@@ -27,6 +27,8 @@ enableGitInfo = false
 [[params.versions]]
   label = '2.x (alpha)'
   url = 'https://zhaow-de.github.io/pam-keycloak-oidc/'
+  # Drives the unreleased-version banner; see layouts/_partials/docs/inject/.
+  prerelease = true
 
 [[params.versions]]
   label = '1.x (stable)'
