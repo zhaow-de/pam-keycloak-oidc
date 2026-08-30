@@ -8,7 +8,7 @@ Two gates at write time, in order. **Necessity**: a source file is not a story b
 - **Doc-comment every exported symbol and every non-obvious unexported one** — `config.go` sets the density.
 - **Introduce an explained block inside a function with a bare `//` separator line above the comment** — that is the house shape in `main.go`; keep it when you add a block.
 - **State decisions and invariants, never status or schedules** — "deliberately dropped" survives; "TODO next release" rots the moment the work moves.
-- **A comment naming an external library or an upstream file is a rot candidate** — the JWT block still blames `dgrijalva/jwt-go`, which the module no longer requires; re-read such a comment before trusting it and before writing another.
+- **A comment naming an external library or an upstream file is a rot candidate** — re-read such a comment before trusting it and before writing another.
 - **A test's comment is a claim about the assertions below it** — re-read it when the fix lands, or a comment describing the world the test just disproved ships with the green run.
 
 ## Layout
@@ -60,6 +60,7 @@ Two gates at write time, in order. **Necessity**: a source file is not a story b
 - **`PAM_USER` reaches the log line unsanitised through the `sid` prefix** — `main.go` flattens newlines out of ERROR text but not out of the username, so a crafted username can still forge log structure; gosec's G706 is suppressed in `.golangci.yml` pointing here, not fixed.
 - **`(*Config).Validate()` is never called from production code** — `main()` runs straight from `loadConfig()` into use, so a check added to `Validate()` is not enforced; an empty `xor-key` instead reaches `encryptDecrypt` and panics on divide-by-zero on every authentication.
 - **`RedirectUri` and `AccessTokenSigningMethod` are parsed and never read** — the accepted signing algorithm is taken from the token's own `alg` header, so "wiring up" the config field changes security behaviour for every existing deployment.
+- **An `enc`-use JWK must never enter the verification pool** — Keycloak publishes its RSA-OAEP key at the same endpoint as its signing key, and `parseJWKS` skips it; a decode path that stopped honouring `use` would widen what can sign a token.
 - **`config.Scope` is two things at once** — the OAuth2 `scope` request parameter AND the JWT claim key searched for roles; changing it to fix a token request silently changes authorization.
 - **No `Version` or `Build` variable exists in any `.go` file** — the Makefile's `-X main.Version` stamps nothing and the linker ignores it without a word, so a `--version` flag built on it prints empty; declaring the variables is not enough either, because `build_all` never passes `LDFLAGS`.
 - **`main()` is uncovered and the OTP pattern is built inside it** — a test for OTP splitting means extracting the pattern builder into a testable function first; without that seam there is no way to test it.
