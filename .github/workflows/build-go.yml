@@ -2,7 +2,11 @@ name: Build and publish
 on:
   push:
     tags:
+      # The 1.x line is tagged `r<version>`; from 2.0.0 the prefix is dropped.
+      # Only `r*` tags exist on origin today, so the numeric pattern cannot
+      # re-fire anything historical.
       - 'r*'
+      - '[0-9]*'
   workflow_dispatch:
 
 # The release step needs this; the archived actions silently relied on the
@@ -90,7 +94,10 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
           draft: false
-          prerelease: false
+          # A prerelease tag carries a hyphenated suffix (2.0.0-a0); a stable one
+          # never does. Without this an alpha becomes the "Latest release" and
+          # every reader of the install docs downloads it instead of 1.x.
+          prerelease: ${{ contains(github.ref_name, '-') }}
           fail_on_unmatched_files: true
           # Notes are GitHub's own "What's Changed" list, built from the PRs merged
           # since the previous tag — this repo keeps no CHANGELOG.md, so `/release`

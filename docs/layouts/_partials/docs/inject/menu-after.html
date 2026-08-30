@@ -1,0 +1,23 @@
+{{/* Version switcher.
+
+     The Pages workflow builds the stable branch at the site root and `develop`
+     at /v2/, then publishes both as one artifact. Each build is told which one
+     it is through HUGO_PARAMS_VERSIONCURRENT, so a single hugo.toml serves both
+     branches and the label cannot drift from the branch it was built from.
+
+     The URLs are absolute on purpose: a root-relative link would resolve against
+     the /v2/ baseURL and never reach the stable site. */}}
+{{ with site.Params.versions }}
+<div class="book-menu-content" style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid rgba(134,144,156,.3)">
+  <strong>Version</strong>
+  <ul>
+    {{ range . }}
+      {{ if eq .label site.Params.versionCurrent }}
+        <li><strong>{{ .label }}</strong> &larr; you are here</li>
+      {{ else }}
+        <li><a href="{{ .url }}">{{ .label }}</a></li>
+      {{ end }}
+    {{ end }}
+  </ul>
+</div>
+{{ end }}
