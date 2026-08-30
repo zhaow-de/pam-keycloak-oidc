@@ -2,7 +2,7 @@
 name: release
 description: Cut a release — reconcile tags, bump the version on a release/<x.y.z> branch, merge into main and back into develop, push the r<version> tag, and confirm build-go.yml published the GitHub Release
 disable-model-invocation: false
-allowed-tools: Bash(git status:*), Bash(git log:*), Bash(git branch:*), Bash(git checkout:*), Bash(git tag:*), Bash(git rev-parse:*), Bash(git ls-remote:*), Bash(git fetch:*), Bash(git pull:*), Bash(git merge:*), Bash(git push:*), Bash(cz:*), Bash(pre-commit run:*), Bash(gh auth status), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run rerun:*), Bash(gh release view:*)
+allowed-tools: Bash(git status:*), Bash(git log:*), Bash(git branch:*), Bash(git checkout:*), Bash(git tag:*), Bash(git rev-parse:*), Bash(git ls-remote:*), Bash(git fetch:*), Bash(git pull:*), Bash(git merge:*), Bash(git merge-tree:*), Bash(git push:*), Bash(cz:*), Bash(pre-commit run:*), Bash(gh auth status), Bash(gh run list:*), Bash(gh run view:*), Bash(gh run rerun:*), Bash(gh release view:*)
 ---
 
 Cuts a release with `cz` on a `release/<x.y.z>` branch, merges it into `main` and back into `develop`, and pushes the annotated `r<version>` tag.
@@ -45,12 +45,18 @@ The tag push fires `.github/workflows/build-go.yml`, which builds the six binari
    ```bash
    git pull origin develop
    git fetch origin main
-   git log develop..origin/main --oneline
+   git merge-tree --write-tree develop origin/main
    ```
 
-   Commits listed by the last command are on `main` but not on `develop` — a past release or hotfix that was never merged back. Releasing on top of that drift re-introduces its conflicts in the version files.
+   That prints the tree a back-merge would produce. Compare it against `develop`, and act only on a real difference:
 
-   If it lists anything, show the commits and back-merge before continuing — `develop` is not protected, so this is a plain merge and a plain push, no PR:
+   ```bash
+   git diff --name-only develop <the tree printed above>
+   ```
+
+   **Empty output means there is no drift — continue to step 4.** Do not use `git log develop..origin/main` for this decision: `main`'s release merges never become ancestors of `develop`, because `develop` merges the `release/*` branch directly rather than merging `main`. That command therefore lists every past release forever, and each one is a merge whose tree already equals its second parent. Counting commits fires on history that carries no content; comparing trees fires only on content.
+
+   Files listed mean a real change reached `main` and never came back — a hotfix, or an edit made on `main` directly. Show them, then back-merge: `develop` is not protected, so this is a plain merge and a plain push, no PR.
 
    ```bash
    git merge origin/main --no-edit
@@ -183,6 +189,7 @@ The tag push fires `.github/workflows/build-go.yml`, which builds the six binari
 | --- | --- |
 | `gh release create` after the tag push | Let `build-go.yml` publish; poll `gh run list` and read `gh release view` |
 | `git push --tags`, or pushing the tag before the branches | `git push origin main`, then `develop`, then `git push origin r<x.y.z>` |
+| Reading `git log develop..origin/main` as drift | It lists every past release forever — those merges carry no content. Compare trees with `git merge-tree --write-tree` |
 | Opening a PR for the release merge or the back-merge | Plain `git merge` + `git push`; neither branch is protected here |
 | A plain `git merge` into `main` that fast-forwards | `git merge --no-ff --no-edit release/<x.y.z>` |
 | `make all` or `make build_all` as the build check | `pre-commit run -a`, before the bump |
